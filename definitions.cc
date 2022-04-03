@@ -26,6 +26,7 @@ bool Player::operator<(const Player& other) {
   // Tie-break within equal match points.
   auto lhstb = std::make_tuple(lhs->opp_mwp(), lhs->gwp(), lhs->opp_gwp());
   auto rhstb = std::make_tuple(rhs->opp_mwp(), rhs->gwp(), rhs->opp_gwp());
+  return lhstb < rhstb;
 }
 
 

@@ -94,6 +94,7 @@ class PlayerImpl : public std::enable_shared_from_this<PlayerImpl> {
   const std::string& last_name() const { return first_name_; }
   const std::string& username() const { return username_; }
 
+  uint16_t match_points() const { return match_points_; }
   Fraction mwp() const { return Fraction(match_points_, 3 * matches_played()); }
   Fraction gwp() const { return Fraction(game_points_, 3 * games_played_); }
 
