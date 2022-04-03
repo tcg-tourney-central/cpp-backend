@@ -2,6 +2,7 @@
 #define _TCGTC_DEFINITIONS_H_
 
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -23,9 +24,11 @@ class MatchImpl;
 // canonical copy shared by e.g. Tournaments, Matches, etc.
 class Player {
  public:
+  using Id = uint64_t;
+
   struct Options {
     // Use designated initializers, must be provided.
-    const uint64_t id;
+    const Id id;
     const std::string first_name;
     const std::string last_name;
     std::string username;
@@ -33,7 +36,7 @@ class Player {
   static Player CreatePlayer(Options opts);
 
   // TODO: external (forwarding) API.
-  uint64_t id() const;
+  Id id() const;
 
   bool operator==(const Player& other) const;
   bool operator<(const Player& other) const;  // MTR standings order.
@@ -42,10 +45,12 @@ class Player {
   explicit Player(std::shared_ptr<internal::PlayerImpl> player)
     : player_(player) {}
 
+  internal::PlayerImpl* operator->() const { return player_.get(); }
+  internal::PlayerImpl& operator*() const { return *player_; }
+
   std::shared_ptr<internal::PlayerImpl> player_;
 
-  // Allow Matches to acces the internal Impl pointer.
-  friend class Match;
+  friend class internal::MatchImpl;
   friend class internal::PlayerImpl;
 };
 
@@ -78,7 +83,13 @@ class Match {
   // TODO: Ensure invariant that match is never null.
   explicit Match(std::shared_ptr<internal::MatchImpl> match) : match_(match) {}
 
+  internal::MatchImpl* operator->() const { return match_.get(); }
+  internal::MatchImpl& operator*() const { return *match_; }
+
   std::shared_ptr<internal::MatchImpl> match_;
+
+  friend class internal::MatchImpl;
+  friend class internal::PlayerImpl;
 };
 
 namespace internal {
@@ -89,7 +100,7 @@ class PlayerImpl : public std::enable_shared_from_this<PlayerImpl> {
  public:
   // TODO: Probably determined by the player's persistent stored ID, but can be
   // per-tournament.
-  uint64_t id() const { return id_; }
+  Player::Id id() const { return id_; }
   const std::string& last_name() const { return last_name_; }
   const std::string& last_name() const { return first_name_; }
   const std::string& username() const { return username_; }
@@ -106,16 +117,19 @@ class PlayerImpl : public std::enable_shared_from_this<PlayerImpl> {
   // Commit a result, and if there is a previous result for that match, erase
   // that from the cache.
   bool CommitResult(const MatchResult& result,
-                    const std::optional<MatchResult>& prev);
+                    const std::optional<MatchResult>& prev = std::nullopt);
+
+  bool has_played_opp(const Player& p) const;
+
+  void AddMatch(Match m);
 
  private:
   explicit PlayerImpl(const Player::Options& opts);
+  Player this_player() const { return Player(this->shared_from_this()); }
 
   uint16_t matches_played() const { return matches_.size(); }
 
-  Player this_player() const { return Player(this->shared_from_this()); }
-
-  const uint64_t id_;
+  const Player::Id id_;
   const std::string last_name_;
   const std::string first_name_;
   const std::string username_;  // e.g. for online tournaments.
@@ -125,7 +139,8 @@ class PlayerImpl : public std::enable_shared_from_this<PlayerImpl> {
   uint16_t games_played_ = 0;
   uint16_t match_points_ = 0;
 
-  std::vector<Match> matches_;
+  std::map<Player::Id, Player> opponents_;
+  std::map<MatchId::Id, Match> matches_;
 
   // TODO: Add a log of GRVs, warnings, etc.
 
@@ -136,8 +151,12 @@ class PlayerImpl : public std::enable_shared_from_this<PlayerImpl> {
 
 // TODO: Add synchronization, this will be important for performant
 // match-reporting, so we don't hammer a "global" (per-tournament) Mutex.
-class MatchImpl {
+class MatchImpl : public std::enable_shared_from_this<MatchImpl> {
  public:
+  // Cannot be called during the constructor as `shared_from_this()` is not
+  // available.
+  void AddMatchToPlayers() const;
+
   bool is_bye() const { return !b_.has_value(); }
   MatchId id() const { return id_; }
 
@@ -162,6 +181,7 @@ class MatchImpl {
 
  private:
   MatchImpl(Player a, std::optional<Player> b, MatchId id);
+  Match this_match() const { return Match(this->shared_from_this()); }
 
   // Commits the result back to the Player(s), updating their matches/games
   // played and match/game points.

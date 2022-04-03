@@ -61,9 +61,10 @@ uint16_t MatchResult::games_played() const {
 // Match -----------------------------------------------------------------------
 Match Match::CreateBye(Player p, MatchId id) {
   Match m(std::make_shared<internal::MatchImpl>(p, std::nullopt, id));
+  m->AddMatchToPlayers();
 
   // Immediately commit the result of the bye back to the player's cache.
-  m.match_->CommitResult(MatchResult{.id = id,
+  m->CommitResult(MatchResult{.id = id,
                                    .winner = p,
                                    // MTR dictates that a Bye is considered won
                                    // 2-0.
@@ -72,7 +73,9 @@ Match Match::CreateBye(Player p, MatchId id) {
 }
 
 Match Match::CreatePairing(Player a, Player b, MatchId id) {
-  return Match(std::make_shared<internal::MatchImpl>(a, b, id));
+  Match m(std::make_shared<internal::MatchImpl>(a, b, id));
+  m->AddMatchToPlayers();
+  return m;
 }
 
 
@@ -85,6 +88,8 @@ PlayerImpl::PlayerImpl(const Player::Options& opts) {}
 
 bool PlayerImpl::CommitResult(const MatchResult& result,
                               const std::optional<MatchResult>& prev) {
+  if (matches_.find(result.id) == matches_.end()) return false;
+
   auto myself = this_player();
   games_played_ += result.games_played();
   game_points_ += result.game_points(myself);
@@ -101,14 +106,26 @@ bool PlayerImpl::CommitResult(const MatchResult& result,
   return true;
 }
 
+void PlayerImpl::AddMatch(Match m) {
+  matches_.insert({m.id(), m});
+  if (!m->is_bye()) {
+    auto opp = match->opponent(this_player());
+    opponents_[opp->id()] = *opp;
+  }
+}
+
+bool has_played_opp(const Player& p) const {
+  return opponents_.find(p.id()) != opponents.end();
+}
+
 Fraction PlayerImpl::opp_mwp() const {
   auto myself = this_player();
   Fraction sum(0);
   uint16_t num_opps = 0;
-  for (const auto& m : matches_) {
-    auto opp = m.opponent(myself);
+  for (const auto& [id, m] : matches_) {
+    auto opp = m->opponent(myself);
     if (!opp.has_value()) continue;
-    sum += opp->player_->mwp().ApplyMtrBound();
+    sum += (*opp)->mwp().ApplyMtrBound();
     ++num_opps;
   }
   Fraction divisor(num_opps);
@@ -119,10 +136,10 @@ Fraction PlayerImpl::opp_gwp() const {
   auto myself = this_player();
   Fraction sum(0);
   uint16_t num_opps = 0;
-  for (const auto& m : matches_) {
-    auto opp = m.opponent(myself);
+  for (const auto& [id, m] : matches_) {
+    auto opp = m->opponent(myself);
     if (!opp.has_value()) continue;
-    sum += opp->player_->gwp().ApplyMtrBound();
+    sum += (*opp)->gwp().ApplyMtrBound();
     ++num_opps;
   }
   Fraction divisor(num_opps);
@@ -134,6 +151,11 @@ Fraction PlayerImpl::opp_gwp() const {
 // MatchImpl -------------------------------------------------------------------
 MatchImpl::MatchImpl(Player a, std::optional<Player> b, MatchId id)
   : id_(id), a_(a), b_(b) {}
+
+void MatchImpl::AddMatchToPlayers() const {
+  a_->AddMatch(this_match());
+  if (b_.has_value()) b_->AddMatch(this_match());
+}
 
 std::optional<MatchResult> MatchImpl::confirmed_result() const {
   // Result set by a judge, or if the match is a bye. Use it.
@@ -157,7 +179,11 @@ std::optional<Player> MatchImpl::opponent(const Player& p) {
 bool MatchImpl::PlayerReportResult(Player reporter, MatchResult result) {
   // This shouldn't happen. Bye results are already committed.
   if (is_bye()) return false;
+
+  // Only players can report for their matches.
   if (!has_player(reporter)) return false;
+
+  // Run other validity checks on the result.
   if (!CheckResultValidity(result)) return false;
 
   if (reporter == a_) {
@@ -201,9 +227,9 @@ bool MatchImpl::CheckResultValidity(const MatchResult& result) const {
 }
 
 void MatchImpl::CommitResult(const MatchResult& result) {
-  if (!a_.player_->CommitResult(result, commited_result_)) return false;
+  if (!a_->CommitResult(result, commited_result_)) return false;
   if (b_.has_value()) {
-    if (!b_->player_->CommitResult(result, commited_result_)) return false;
+    if (!(*b_)->CommitResult(result, commited_result_)) return false;
   }
   commited_result_ = result;
   return true;
