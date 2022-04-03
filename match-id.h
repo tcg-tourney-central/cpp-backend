@@ -5,9 +5,6 @@
 
 namespace tcgtc {
 
-constexpr uint8_t kSwissMask = 1 << 7;
-constexpr uint8_t kRoundNumMask = ~kSwissMask;
-
 // A round and match number (within that round) which together uniquely identify
 // a match within a tournament.
 struct MatchId {
@@ -17,11 +14,6 @@ struct MatchId {
   // The match number per-round. This allows ~16 million matches in a single
   // round. Seems fine.
   uint32_t number : 24;
-
-  bool is_swiss() const { return round & kSwissMask == 0; }
-
-  // Actual round number, removing the elimination round bit.
-  uint8_t round() const { return round & kRoundNumMask; }
 
   // Pack the round and the number into an integer, for unique ids in e.g. maps.
   uint32_t id() const { return (number << 8) | round; }
