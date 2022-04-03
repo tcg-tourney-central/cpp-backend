@@ -3,41 +3,50 @@
 namespace tcgtc {
 
 // Player ----------------------------------------------------------------------
+Player::Player(std::shared_ptr<PlayerImpl> player)
+  : player_(player) {}
+
 Player Player::CreatePlayer(Options opts) { 
-  return Player(std::make_shared<internal::PlayerImpl>(opts));
+  return Player(std::shared_ptr<PlayerImpl>(new PlayerImpl(opts)));
 }
 
 uint64_t Player::id() const { return player_->id(); }
 
-bool Player::operator==(const Player& other) {
-  if (this->id() != other->id()) return false;
+bool operator==(const Player& l, const Player& r) {
+  if (l.id() != r.id()) return false;
 
-  // TODO: Add an invariant check that `this->player_ == other.player_`
+  // TODO: Add an invariant check that `l.player_ == r.player_`
   return true;
 }
 
-bool Player::operator<(const Player& other) {
-  auto* lhs = this->player_.get();
-  auto* rhs = other.player_.get();
-  uint16_t lhsmp = lhs->match_points();
-  uint16_t rhsmp = rhs->match_points();
+bool operator<(const Player& l, const Player& r) {
+  uint16_t lhsmp = l->match_points();
+  uint16_t rhsmp = r->match_points();
+  return lhsmp < rhsmp;
+
+  /*
   if (lhsmp != rhsmp) return lhsmp < rhsmp;
 
   // Tie-break within equal match points.
   auto lhstb = std::make_tuple(lhs->opp_mwp(), lhs->gwp(), lhs->opp_gwp());
   auto rhstb = std::make_tuple(rhs->opp_mwp(), rhs->gwp(), rhs->opp_gwp());
   return lhstb < rhstb;
+  */
 }
 
 
 
 // MatchResult -----------------------------------------------------------------
-bool MatchResult::operator==(const MatchResult& other) {
-  return this->id == other.id &&
-         this->winner == other.winner &&
-         this->winner_games_won == other.winner_games_won &&
-         this->winner_games_lost == other.winner_games_lost &&
-         this->games_drawn == other.games_drawn;
+bool operator==(const MatchResult& l, const MatchResult& r) {
+  return l.id == r.id &&
+         l.winner == r.winner &&
+         l.winner_games_won == r.winner_games_won &&
+         l.winner_games_lost == r.winner_games_lost &&
+         l.games_drawn == r.games_drawn;
+}
+
+bool operator!=(const MatchResult& l, const MatchResult& r) {
+  return !(l == r);
 }
 
 uint16_t MatchResult::match_points(const Player& p) const {
@@ -59,28 +68,25 @@ uint16_t MatchResult::games_played() const {
 
 
 // Match -----------------------------------------------------------------------
+Match::Match(std::shared_ptr<MatchImpl> match) : match_(match) {}
+
 Match Match::CreateBye(Player p, MatchId id) {
-  Match m(std::make_shared<internal::MatchImpl>(p, std::nullopt, id));
+  Match m(std::shared_ptr<MatchImpl>(new MatchImpl(p, std::nullopt, id)));
   m->AddMatchToPlayers();
 
   // Immediately commit the result of the bye back to the player's cache.
-  m->CommitResult(MatchResult{.id = id,
-                                   .winner = p,
-                                   // MTR dictates that a Bye is considered won
-                                   // 2-0.
-                                   .winner_games_won = 2});
+  // MTR states that a Bye is considered won 2-0 in games.
+  m->CommitResult(MatchResult{id, p, 2});
   return m;
 }
 
 Match Match::CreatePairing(Player a, Player b, MatchId id) {
-  Match m(std::make_shared<internal::MatchImpl>(a, b, id));
+  Match m(std::shared_ptr<MatchImpl>(new MatchImpl(a, b, id)));
   m->AddMatchToPlayers();
   return m;
 }
 
 
-
-namespace internal {  // -------------------------------------------------------
 
 // PlayerImpl ------------------------------------------------------------------
 // TODO: Fill this out.
@@ -95,7 +101,7 @@ bool PlayerImpl::CommitResult(const MatchResult& result,
   game_points_ += result.game_points(myself);
   match_points_ += result.match_points(myself);
 
-  // Remove any previously commited result values for this match.
+  // Remove any previously committed result values for this match.
   if (prev.has_value()) {
     // This should never actually happen...
     if (prev->id != result.id) return false;
@@ -107,39 +113,39 @@ bool PlayerImpl::CommitResult(const MatchResult& result,
 }
 
 void PlayerImpl::AddMatch(Match m) {
-  matches_.insert({m.id(), m});
+  matches_.insert(std::make_pair(m->id(), m));
   if (!m->is_bye()) {
-    auto opp = match->opponent(this_player());
-    opponents_[opp->id()] = *opp;
+    auto opp = m->opponent(this_player());
+    opponents_.insert(std::make_pair(opp->id(), *opp));
   }
 }
 
-bool has_played_opp(const Player& p) const {
-  return opponents_.find(p.id()) != opponents.end();
+bool PlayerImpl::has_played_opp(const Player& p) {
+  return opponents_.find(p.id()) != opponents_.end();
 }
 
-Fraction PlayerImpl::opp_mwp() const {
+Fraction PlayerImpl::opp_mwp() {
   auto myself = this_player();
   Fraction sum(0);
   uint16_t num_opps = 0;
   for (const auto& [id, m] : matches_) {
     auto opp = m->opponent(myself);
     if (!opp.has_value()) continue;
-    sum += (*opp)->mwp().ApplyMtrBound();
+    sum = sum + (*opp)->mwp().ApplyMtrBound();
     ++num_opps;
   }
   Fraction divisor(num_opps);
   return sum / divisor;
 }
 
-Fraction PlayerImpl::opp_gwp() const {
+Fraction PlayerImpl::opp_gwp() {
   auto myself = this_player();
   Fraction sum(0);
   uint16_t num_opps = 0;
   for (const auto& [id, m] : matches_) {
     auto opp = m->opponent(myself);
     if (!opp.has_value()) continue;
-    sum += (*opp)->gwp().ApplyMtrBound();
+    sum = sum + (*opp)->gwp().ApplyMtrBound();
     ++num_opps;
   }
   Fraction divisor(num_opps);
@@ -152,14 +158,14 @@ Fraction PlayerImpl::opp_gwp() const {
 MatchImpl::MatchImpl(Player a, std::optional<Player> b, MatchId id)
   : id_(id), a_(a), b_(b) {}
 
-void MatchImpl::AddMatchToPlayers() const {
+void MatchImpl::AddMatchToPlayers()  {
   a_->AddMatch(this_match());
-  if (b_.has_value()) b_->AddMatch(this_match());
+  if (b_.has_value()) (*b_)->AddMatch(this_match());
 }
 
-std::optional<MatchResult> MatchImpl::confirmed_result() const {
+std::optional<MatchResult> MatchImpl::confirmed_result() {
   // Result set by a judge, or if the match is a bye. Use it.
-  if (comitted_result_.has_value()) return committed_result_;
+  if (committed_result_.has_value()) return committed_result_;
 
   // Result has not been confirmed.
   if (!a_result_.has_value() || !b_result_.has_value()) return std::nullopt;
@@ -206,7 +212,7 @@ bool MatchImpl::JudgeSetResult(MatchResult result) {
 }
 
 // TODO: This validation should perhaps exist on parse, rather than here.
-bool MatchImpl::CheckResultValidity(const MatchResult& result) const {
+bool MatchImpl::CheckResultValidity(const MatchResult& result) {
   // Reported for the wrong match id.
   // TODO: Consider removing this?
   if (result.id != id_) return false;
@@ -226,14 +232,13 @@ bool MatchImpl::CheckResultValidity(const MatchResult& result) const {
   return true;
 }
 
-void MatchImpl::CommitResult(const MatchResult& result) {
-  if (!a_->CommitResult(result, commited_result_)) return false;
+bool MatchImpl::CommitResult(const MatchResult& result) {
+  if (!a_->CommitResult(result, committed_result_)) return false;
   if (b_.has_value()) {
-    if (!(*b_)->CommitResult(result, commited_result_)) return false;
+    if (!(*b_)->CommitResult(result, committed_result_)) return false;
   }
-  commited_result_ = result;
+  committed_result_ = result;
   return true;
 }
 
-}  // namespace internal
 }  // namespace tcgtc

@@ -22,10 +22,15 @@ struct MatchId {
   static MatchId FromInt(uint32_t id) {
     return MatchId{id >> 24, id && 0x00FFFFFF};
   }
-
-  bool operator<(const MatchId& other) { return this->id() < other.id(); }
-  bool operator==(const MatchId& other) { return this->id() == other.id(); }
 };
+
+inline bool operator<(const MatchId& l, const MatchId& r) {  
+  return l.id() < r.id();
+}
+inline bool operator==(const MatchId& l, const MatchId& r) {  
+  return l.id() == r.id();
+}
+inline bool operator!=(const MatchId& l, const MatchId& r) { return !(l == r); }
 
 }  // namespace tcgtc
 
