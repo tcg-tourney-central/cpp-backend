@@ -36,6 +36,7 @@ class Player {
   uint64_t id() const;
 
   bool operator==(const Player& other) const;
+  bool operator<(const Player& other) const;  // MTR standings order.
 
  private:
   explicit Player(std::shared_ptr<internal::PlayerImpl> player)
@@ -84,7 +85,7 @@ namespace internal {
 
 // TODO: Add synchronization, this will be important for performant
 // match-reporting, so we don't hammer a "global" (per-tournament) Mutex.
-class PlayerImpl : std::enable_shared_from_this<PlayerImpl> {
+class PlayerImpl : public std::enable_shared_from_this<PlayerImpl> {
  public:
   // TODO: Probably determined by the player's persistent stored ID, but can be
   // per-tournament.
@@ -97,9 +98,9 @@ class PlayerImpl : std::enable_shared_from_this<PlayerImpl> {
   Fraction gwp() const { return Fraction(game_points_, 3 * games_played_); }
 
   // This player's averaged Opponent Match Win %
-  Fraction omw() const;
+  Fraction opp_mwp() const;
   // This player's averaged Opponent Game Win %
-  Fraction ogwp() const;
+  Fraction opp_gwp() const;
 
   // Commit a result, and if there is a previous result for that match, erase
   // that from the cache.

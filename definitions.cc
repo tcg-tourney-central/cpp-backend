@@ -16,6 +16,18 @@ bool Player::operator==(const Player& other) {
   return true;
 }
 
+bool Player::operator<(const Player& other) {
+  auto* lhs = this->player_.get();
+  auto* rhs = other.player_.get();
+  uint16_t lhsmp = lhs->match_points();
+  uint16_t rhsmp = rhs->match_points();
+  if (lhsmp != rhsmp) return lhsmp < rhsmp;
+
+  // Tie-break within equal match points.
+  auto lhstb = std::make_tuple(lhs->opp_mwp(), lhs->gwp(), lhs->opp_gwp());
+  auto rhstb = std::make_tuple(rhs->opp_mwp(), rhs->gwp(), rhs->opp_gwp());
+}
+
 
 
 // MatchResult -----------------------------------------------------------------
@@ -88,9 +100,9 @@ bool PlayerImpl::CommitResult(const MatchResult& result,
   return true;
 }
 
-Fraction PlayerImpl::omw() const {
+Fraction PlayerImpl::opp_mwp() const {
   auto myself = this_player();
-  Fraction sum(0, 1);
+  Fraction sum(0);
   uint16_t num_opps = 0;
   for (const auto& m : matches_) {
     auto opp = m.opponent(myself);
@@ -102,9 +114,9 @@ Fraction PlayerImpl::omw() const {
   return sum / divisor;
 }
 
-Fraction PlayerImpl::ogwp() const {
+Fraction PlayerImpl::opp_gwp() const {
   auto myself = this_player();
-  Fraction sum(0, 1);
+  Fraction sum(0);
   uint16_t num_opps = 0;
   for (const auto& m : matches_) {
     auto opp = m.opponent(myself);
