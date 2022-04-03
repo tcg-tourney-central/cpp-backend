@@ -20,7 +20,7 @@ struct MatchId {
   Id id() const { return (round << 24) | number; }
 
   static MatchId FromInt(uint32_t id) {
-    return MatchId{.round = id >> 24, .number = id && 0x00FFFFFF; };
+    return MatchId{id >> 24, id && 0x00FFFFFF};
   }
 
   bool operator<(const MatchId& other) { return this->id() < other.id(); }

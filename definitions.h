@@ -6,6 +6,7 @@
 #include <memory>
 #include <optional>
 #include <vector>
+#include <string>
 
 #include "fraction.h"
 #include "match-id.h"
@@ -27,10 +28,9 @@ class Player {
   using Id = uint64_t;
 
   struct Options {
-    // Use designated initializers, must be provided.
-    const Id id;
-    const std::string first_name;
-    const std::string last_name;
+    Id id;
+    std::string first_name;
+    std::string last_name;
     std::string username;
   };
   static Player CreatePlayer(Options opts);
@@ -50,8 +50,8 @@ class Player {
 
   std::shared_ptr<internal::PlayerImpl> player_;
 
-  friend class internal::MatchImpl;
-  friend class internal::PlayerImpl;
+  friend class ::tcgtc::internal::MatchImpl;
+  friend class ::tcgtc::internal::PlayerImpl;
 };
 
 struct MatchResult {
@@ -88,8 +88,8 @@ class Match {
 
   std::shared_ptr<internal::MatchImpl> match_;
 
-  friend class internal::MatchImpl;
-  friend class internal::PlayerImpl;
+  friend class ::tcgtc::internal::MatchImpl;
+  friend class ::tcgtc::internal::PlayerImpl;
 };
 
 namespace internal {

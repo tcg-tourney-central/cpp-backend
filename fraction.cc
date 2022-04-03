@@ -63,7 +63,7 @@ Fraction Fraction::operator*(const Fraction& other) const {
 
 // Represent this in terms of multiplication.
 Fraction Fraction::operator/(const Fraction& other) const {
-  Fraction inv(other.denom_, other_.numer_, nullptr);
+  Fraction inv(other.denom_, other.numer_, nullptr);
   return (*this) * inv;
 }
 

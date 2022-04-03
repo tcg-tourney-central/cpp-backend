@@ -10,7 +10,8 @@ cc_library(
   deps = [
     ":fraction",
     ":match-id",
-  ]
+  ],
+  copts = ["/std:c++17"],
 )
 
 cc_library(

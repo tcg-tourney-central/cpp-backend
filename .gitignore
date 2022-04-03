@@ -1,3 +1,4 @@
 bazel*
 cpp-backend.sublime-project
 *.sublime-workspace
+.bazelrc
