@@ -3,11 +3,10 @@
 namespace tcgtc {
 
 // Player ----------------------------------------------------------------------
-Player::Player(std::shared_ptr<PlayerImpl> player)
-  : player_(player) {}
-
 Player Player::CreatePlayer(Options opts) { 
-  return Player(std::shared_ptr<PlayerImpl>(new PlayerImpl(opts)));
+  Player p(std::shared_ptr<PlayerImpl>(new PlayerImpl(opts)));
+  p->Init();
+  return p;
 }
 
 uint64_t Player::id() const { return player_->id(); }
@@ -68,11 +67,9 @@ uint16_t MatchResult::games_played() const {
 
 
 // Match -----------------------------------------------------------------------
-Match::Match(std::shared_ptr<MatchImpl> match) : match_(match) {}
-
 Match Match::CreateBye(Player p, MatchId id) {
   Match m(std::shared_ptr<MatchImpl>(new MatchImpl(p, std::nullopt, id)));
-  m->AddMatchToPlayers();
+  m->Init();
 
   // Immediately commit the result of the bye back to the player's cache.
   // MTR states that a Bye is considered won 2-0 in games.
@@ -82,7 +79,7 @@ Match Match::CreateBye(Player p, MatchId id) {
 
 Match Match::CreatePairing(Player a, Player b, MatchId id) {
   Match m(std::shared_ptr<MatchImpl>(new MatchImpl(a, b, id)));
-  m->AddMatchToPlayers();
+  m->Init();
   return m;
 }
 
@@ -120,11 +117,11 @@ void PlayerImpl::AddMatch(Match m) {
   }
 }
 
-bool PlayerImpl::has_played_opp(const Player& p) {
+bool PlayerImpl::has_played_opp(const Player& p) const {
   return opponents_.find(p.id()) != opponents_.end();
 }
 
-Fraction PlayerImpl::opp_mwp() {
+Fraction PlayerImpl::opp_mwp() const {
   auto myself = this_player();
   Fraction sum(0);
   uint16_t num_opps = 0;
@@ -138,7 +135,7 @@ Fraction PlayerImpl::opp_mwp() {
   return sum / divisor;
 }
 
-Fraction PlayerImpl::opp_gwp() {
+Fraction PlayerImpl::opp_gwp() const {
   auto myself = this_player();
   Fraction sum(0);
   uint16_t num_opps = 0;
@@ -158,12 +155,16 @@ Fraction PlayerImpl::opp_gwp() {
 MatchImpl::MatchImpl(Player a, std::optional<Player> b, MatchId id)
   : id_(id), a_(a), b_(b) {}
 
-void MatchImpl::AddMatchToPlayers()  {
+void MatchImpl::Init() {
+  // Initialize our ability to hand out Matches that are equivalent to ourselves.
+  self_ptr_ = weak_from_this();
+
+  // Add this match to the participating players as well.
   a_->AddMatch(this_match());
   if (b_.has_value()) (*b_)->AddMatch(this_match());
 }
 
-std::optional<MatchResult> MatchImpl::confirmed_result() {
+std::optional<MatchResult> MatchImpl::confirmed_result() const {
   // Result set by a judge, or if the match is a bye. Use it.
   if (committed_result_.has_value()) return committed_result_;
 
@@ -176,7 +177,7 @@ std::optional<MatchResult> MatchImpl::confirmed_result() {
   return std::nullopt;
 }
 
-std::optional<Player> MatchImpl::opponent(const Player& p) {
+std::optional<Player> MatchImpl::opponent(const Player& p) const {
   // TODO: Consider a validity check that p is in this match.
   if (is_bye()) return std::nullopt;
   return p == a_ ? *b_ : a_;
@@ -212,7 +213,7 @@ bool MatchImpl::JudgeSetResult(MatchResult result) {
 }
 
 // TODO: This validation should perhaps exist on parse, rather than here.
-bool MatchImpl::CheckResultValidity(const MatchResult& result) {
+bool MatchImpl::CheckResultValidity(const MatchResult& result) const {
   // Reported for the wrong match id.
   // TODO: Consider removing this?
   if (result.id != id_) return false;

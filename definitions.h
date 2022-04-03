@@ -37,22 +37,14 @@ class Player {
   Id id() const;
 
   PlayerImpl* get() const { return player_.get(); }
-  PlayerImpl* operator->() { return get(); }
-  PlayerImpl& operator*() { return *get(); }
   PlayerImpl* operator->() const { return get(); }
   PlayerImpl& operator*() const { return *get(); }
 
  private:
   std::shared_ptr<PlayerImpl> player_;
  public:
-  // DO NOT USE, PLEASE. FIGHTING WITH COMPILER.
-  explicit Player(std::shared_ptr<PlayerImpl> player);
-
-  Player() = delete;
-  Player(const Player& other) = default;
-  Player& operator=(const Player& other) = default;
-  Player(Player&& other) = default;
-  Player& operator=(Player&& other) = default;
+  // DO NOT USE, FIGHTING WITH COMPILER FRIEND DECLARATIONS.
+  explicit Player(std::shared_ptr<PlayerImpl> player) : player_(player) {}
 };
 
 bool operator==(const Player& l, const Player& r);
@@ -85,22 +77,14 @@ class Match {
   static Match CreatePairing(Player a, Player b, MatchId id);
 
   MatchImpl* get() const { return match_.get(); }
-  MatchImpl* operator->() { return get(); }
-  MatchImpl& operator*() { return *get(); }
   MatchImpl* operator->() const { return get(); }
   MatchImpl& operator*() const { return *get(); }
 
  private:
   std::shared_ptr<MatchImpl> match_;
  public:
-  // DO NOT USE, PLEASE. FIGHTING WITH COMPILER.
-  explicit Match(std::shared_ptr<MatchImpl> match);
-
-  Match() = delete;
-  Match(const Match& other) = default;
-  Match& operator=(const Match& other) = default;
-  Match(Match&& other) = default;
-  Match& operator=(Match&& other) = default;
+  // DO NOT USE, FIGHTING WITH COMPILER FRIEND DECLARATIONS.
+  explicit Match(std::shared_ptr<MatchImpl> match) : match_(match) {}
 };
 
 
@@ -111,41 +95,51 @@ class Match {
 // match-reporting, so we don't hammer a "global" (per-tournament) Mutex.
 class PlayerImpl : public std::enable_shared_from_this<PlayerImpl> {
  public:
+  void Init() { self_ptr_ = weak_from_this(); } 
+
   // TODO: Probably determined by the player's persistent stored ID, but can be
   // per-tournament.
   Player::Id id() { return id_; }
-  std::string& last_name() { return last_name_; }
-  std::string& first_name() { return first_name_; }
-  std::string& username() { return username_; }
+  const std::string& last_name() { return last_name_; }
+  const std::string& first_name() { return first_name_; }
+  const std::string& username() { return username_; }
 
-  uint16_t match_points() { return match_points_; }
-  Fraction mwp() { return Fraction(match_points_, 3 * matches_played()); }
-  Fraction gwp() { return Fraction(game_points_, 3 * games_played_); }
+  uint16_t match_points() const { return match_points_; }
+  Fraction mwp() const { return Fraction(match_points_, 3 * matches_played()); }
+  Fraction gwp() const { return Fraction(game_points_, 3 * games_played_); }
 
   // This player's averaged Opponent Match Win %
-  Fraction opp_mwp();
+  Fraction opp_mwp() const;
   // This player's averaged Opponent Game Win %
-  Fraction opp_gwp();
+  Fraction opp_gwp() const;
+
+  bool has_played_opp(const Player& p) const;
 
   // Commit a result, and if there is a previous result for that match, erase
   // that from the cache.
   bool CommitResult(const MatchResult& result,
                     const std::optional<MatchResult>& prev);
 
-  bool has_played_opp(const Player& p);
-
   void AddMatch(Match m);
 
  private:
+  // We want these implementations created only by the container classes.
+  friend class Player;
   explicit PlayerImpl(const Player::Options& opts);
-  Player this_player() { return Player(shared_from_this()); }
 
-  uint16_t matches_played() { return matches_.size(); }
+  // Neither Init or this_player can be called within the constructor as they
+  // rely on std::shared_from_this
+  Player this_player() const { return Player(self_ptr_.lock()); }
+
+  uint16_t matches_played() const { return matches_.size(); }
 
   Player::Id id_;
   std::string last_name_;
   std::string first_name_;
   std::string username_;  // e.g. for online tournaments.
+
+  // Can't store a std::shared_ptr to ourselves or this would be a memory leak.
+  std::weak_ptr<PlayerImpl> self_ptr_;
 
   // Local cache of results. Modified by the matches when a result is committed.
   uint16_t game_points_ = 0;
@@ -156,10 +150,6 @@ class PlayerImpl : public std::enable_shared_from_this<PlayerImpl> {
   std::map<MatchId, Match> matches_;
 
   // TODO: Add a log of GRVs, warnings, etc.
-
-  // We want implementations created only by the outer container classes, so we
-  // hide the constructor.
-  friend class Player;
 };
 
 // TODO: Add synchronization, this will be important for performant
@@ -167,22 +157,20 @@ class PlayerImpl : public std::enable_shared_from_this<PlayerImpl> {
 class MatchImpl : public std::enable_shared_from_this<MatchImpl> {
  public:
   // Cannot be called during the constructor as `shared_from_this()` is not
-  // available.
-  void AddMatchToPlayers();
+  // available, so we called it immediately after.
+  void Init();
 
-  bool is_bye() { return !b_.has_value(); }
-  MatchId id() { return id_; }
-
-  bool has_player(const Player& p) {
+  bool is_bye() const { return !b_.has_value(); }
+  MatchId id() const { return id_; }
+  bool has_player(const Player& p) const {
     return a_ == p || (b_.has_value() && *b_ == p);
   }
-
-  std::optional<Player> opponent(const Player& p);
+  std::optional<Player> opponent(const Player& p) const;
 
   // Only returns a value if both players have reported the same result.
   //
   // TODO: Use absl::StatusOr<MatchResult>
-  std::optional<MatchResult> confirmed_result();
+  std::optional<MatchResult> confirmed_result() const;
 
   // Returns false if the reporter or reported result is invalid.
   bool PlayerReportResult(Player reporter, MatchResult result);
@@ -193,20 +181,26 @@ class MatchImpl : public std::enable_shared_from_this<MatchImpl> {
   bool JudgeSetResult(MatchResult result);
 
  private:
+  // We want these implementations created only by the container classes.
+  friend class Match;
   MatchImpl(Player a, std::optional<Player> b, MatchId id);
-  Match this_match() { return Match(shared_from_this()); }
+  Match this_match() const { return Match(self_ptr_.lock()); }
 
   // Commits the result back to the Player(s), updating their matches/games
   // played and match/game points.
   bool CommitResult(const MatchResult& result);
 
   // TODO: Migrate to absl::Status
-  bool CheckResultValidity(const MatchResult& result);
+  bool CheckResultValidity(const MatchResult& result) const;
 
-  MatchId id_;
+  const MatchId id_;
 
-  Player a_;
-  std::optional<Player> b_;
+  const Player a_;
+  const std::optional<Player> b_;
+
+  // Can't store a std::shared_ptr to ourselves or this would be a memory leak,
+  // used to allows `this_match()` to be const-qualified.
+  std::weak_ptr<MatchImpl> self_ptr_;
 
   // Reported results, per player.
   std::optional<MatchResult> a_result_;
@@ -216,10 +210,6 @@ class MatchImpl : public std::enable_shared_from_this<MatchImpl> {
   std::optional<MatchResult> committed_result_;
 
   // TODO: Add a log of extensions, GRVs, etc.
-
-  // We want implementations created only by the outer container classes, so we
-  // hide the constructor.
-  friend class Match;
 };
 
 }  // namespace tcgtc
