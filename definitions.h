@@ -8,6 +8,8 @@
 #include <vector>
 #include <string>
 
+#include "absl/base/thread_annotations.h"
+#include "absl/synchronization/mutex.h"
 #include "fraction.h"
 #include "match-id.h"
 
@@ -46,7 +48,6 @@ class Player {
   // DO NOT USE, FIGHTING WITH COMPILER FRIEND DECLARATIONS.
   explicit Player(std::shared_ptr<PlayerImpl> player) : player_(player) {}
 };
-
 bool operator==(const Player& l, const Player& r);
 bool operator<(const Player& l, const Player& r);
 
@@ -63,7 +64,6 @@ struct MatchResult {
   uint16_t game_points(const Player& p) const;
   uint16_t games_played() const;
 };
-
 bool operator==(const MatchResult& l, const MatchResult& r);
 bool operator!=(const MatchResult& l, const MatchResult& r);
 
@@ -95,6 +95,8 @@ class Match {
 // match-reporting, so we don't hammer a "global" (per-tournament) Mutex.
 class PlayerImpl : public std::enable_shared_from_this<PlayerImpl> {
  public:
+  // Cannot be called during the constructor as `weak_from_this()` is not
+  // available, so we called it immediately after.
   void Init() { self_ptr_ = weak_from_this(); } 
 
   // TODO: Probably determined by the player's persistent stored ID, but can be
@@ -109,26 +111,24 @@ class PlayerImpl : public std::enable_shared_from_this<PlayerImpl> {
   Fraction gwp() const { return Fraction(game_points_, 3 * games_played_); }
 
   // This player's averaged Opponent Match Win %
-  Fraction opp_mwp() const;
+  Fraction opp_mwp() const ABSL_LOCKS_EXCLUDED(mu_);
   // This player's averaged Opponent Game Win %
-  Fraction opp_gwp() const;
+  Fraction opp_gwp() const ABSL_LOCKS_EXCLUDED(mu_);
 
   bool has_played_opp(const Player& p) const;
 
   // Commit a result, and if there is a previous result for that match, erase
   // that from the cache.
   bool CommitResult(const MatchResult& result,
-                    const std::optional<MatchResult>& prev);
+                    const std::optional<MatchResult>& prev)
+    ABSL_LOCKS_EXCLUDED(mu_);
 
-  void AddMatch(Match m);
+  void AddMatch(Match m) ABSL_LOCKS_EXCLUDED(mu_);
 
  private:
   // We want these implementations created only by the container classes.
   friend class Player;
   explicit PlayerImpl(const Player::Options& opts);
-
-  // Neither Init or this_player can be called within the constructor as they
-  // rely on std::shared_from_this
   Player this_player() const { return Player(self_ptr_.lock()); }
 
   uint16_t matches_played() const { return matches_.size(); }
@@ -144,13 +144,15 @@ class PlayerImpl : public std::enable_shared_from_this<PlayerImpl> {
   // effectively const.
   std::weak_ptr<PlayerImpl> self_ptr_;
 
-  // Local cache of results. Modified by the matches when a result is committed.
-  uint16_t game_points_ = 0;
-  uint16_t games_played_ = 0;
-  uint16_t match_points_ = 0;
+  mutable absl::Mutex mu_;
 
-  std::map<Player::Id, Player> opponents_;
-  std::map<MatchId, Match> matches_;
+  // Local cache of results. Modified by the matches when a result is committed.
+  uint16_t game_points_ ABSL_GUARDED_BY(mu_)= 0;
+  uint16_t games_played_ ABSL_GUARDED_BY(mu_) = 0;
+  uint16_t match_points_ ABSL_GUARDED_BY(mu_) = 0;
+
+  std::map<Player::Id, Player> opponents_ ABSL_GUARDED_BY(mu_);
+  std::map<MatchId, Match> matches_ ABSL_GUARDED_BY(mu_);
 
   // TODO: Add a log of GRVs, warnings, etc.
 };
@@ -159,7 +161,7 @@ class PlayerImpl : public std::enable_shared_from_this<PlayerImpl> {
 // match-reporting, so we don't hammer a "global" (per-tournament) Mutex.
 class MatchImpl : public std::enable_shared_from_this<MatchImpl> {
  public:
-  // Cannot be called during the constructor as `shared_from_this()` is not
+  // Cannot be called during the constructor as `weak_from_this()` is not
   // available, so we called it immediately after.
   void Init();
 
@@ -191,13 +193,13 @@ class MatchImpl : public std::enable_shared_from_this<MatchImpl> {
 
   // Commits the result back to the Player(s), updating their matches/games
   // played and match/game points.
-  bool CommitResult(const MatchResult& result);
+  bool CommitResult(const MatchResult& result)
+    ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   // TODO: Migrate to absl::Status
   bool CheckResultValidity(const MatchResult& result) const;
 
   const MatchId id_;
-
   const Player a_;
   const std::optional<Player> b_;
 
@@ -207,12 +209,14 @@ class MatchImpl : public std::enable_shared_from_this<MatchImpl> {
   // effectively const.
   std::weak_ptr<MatchImpl> self_ptr_;
 
+  mutable absl::Mutex mu_;
+
   // Reported results, per player.
-  std::optional<MatchResult> a_result_;
-  std::optional<MatchResult> b_result_;
+  std::optional<MatchResult> a_result_ ABSL_GUARDED_BY(mu_);
+  std::optional<MatchResult> b_result_ ABSL_GUARDED_BY(mu_);
 
   // Set either by a judge, if the match is a bye, or when players agree on a
-  std::optional<MatchResult> committed_result_;
+  std::optional<MatchResult> committed_result_ ABSL_GUARDED_BY(mu_);
 
   // TODO: Add a log of extensions, GRVs, etc.
 };

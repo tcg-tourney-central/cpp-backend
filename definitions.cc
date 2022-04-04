@@ -93,6 +93,7 @@ PlayerImpl::PlayerImpl(const Player::Options& opts)
 
 bool PlayerImpl::CommitResult(const MatchResult& result,
                               const std::optional<MatchResult>& prev) {
+  absl::MutexLock l(&mu_);
   if (matches_.find(result.id) == matches_.end()) return false;
 
   auto myself = this_player();
@@ -112,6 +113,7 @@ bool PlayerImpl::CommitResult(const MatchResult& result,
 }
 
 void PlayerImpl::AddMatch(Match m) {
+  absl::MutexLock l(&mu_);
   matches_.insert(std::make_pair(m->id(), m));
   if (!m->is_bye()) {
     auto opp = m->opponent(this_player());
@@ -120,10 +122,12 @@ void PlayerImpl::AddMatch(Match m) {
 }
 
 bool PlayerImpl::has_played_opp(const Player& p) const {
+  absl::MutexLock l(&mu_);
   return opponents_.find(p.id()) != opponents_.end();
 }
 
 Fraction PlayerImpl::opp_mwp() const {
+  absl::MutexLock l(&mu_);
   auto myself = this_player();
   Fraction sum(0);
   uint16_t num_opps = 0;
@@ -138,6 +142,7 @@ Fraction PlayerImpl::opp_mwp() const {
 }
 
 Fraction PlayerImpl::opp_gwp() const {
+  absl::MutexLock l(&mu_);
   auto myself = this_player();
   Fraction sum(0);
   uint16_t num_opps = 0;
@@ -167,6 +172,7 @@ void MatchImpl::Init() {
 }
 
 std::optional<MatchResult> MatchImpl::confirmed_result() const {
+  absl::MutexLock l(&mu_);
   // Result set by a judge, or if the match is a bye. Use it.
   if (committed_result_.has_value()) return committed_result_;
 
@@ -195,6 +201,7 @@ bool MatchImpl::PlayerReportResult(Player reporter, MatchResult result) {
   // Run other validity checks on the result.
   if (!CheckResultValidity(result)) return false;
 
+  absl::MutexLock l(&mu_);
   if (reporter == a_) {
     a_result_ = result;
   } else {

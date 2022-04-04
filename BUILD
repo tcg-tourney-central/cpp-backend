@@ -10,6 +10,8 @@ cc_library(
   deps = [
     ":fraction",
     ":match-id",
+    "@com_google_absl//absl/base",
+    "@com_google_absl//absl/synchronization",
   ],
   copts = ["/std:c++17"],
 )
