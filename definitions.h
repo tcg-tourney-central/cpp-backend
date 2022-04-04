@@ -45,10 +45,10 @@ class Player {
   PlayerImpl& operator*() const { return *get(); }
 
  private:
-  std::shared_ptr<PlayerImpl> player_;
- public:
-  // DO NOT USE, FIGHTING WITH COMPILER FRIEND DECLARATIONS.
+  friend class ::tcgtc::PlayerImpl;
   explicit Player(std::shared_ptr<PlayerImpl> player) : player_(player) {}
+
+  std::shared_ptr<PlayerImpl> player_;
 };
 bool operator==(const Player& l, const Player& r);
 bool operator<(const Player& l, const Player& r);
@@ -83,10 +83,10 @@ class Match {
   MatchImpl& operator*() const { return *get(); }
 
  private:
-  std::shared_ptr<MatchImpl> match_;
- public:
-  // DO NOT USE, FIGHTING WITH COMPILER FRIEND DECLARATIONS.
+  friend class ::tcgtc::MatchImpl;
   explicit Match(std::shared_ptr<MatchImpl> match) : match_(match) {}
+
+  std::shared_ptr<MatchImpl> match_;
 };
 
 
