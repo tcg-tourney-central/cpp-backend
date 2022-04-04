@@ -15,11 +15,9 @@ namespace tcgtc {
 // (2) We deal with small numbers as inputs, generally.
 class Fraction {
  public:
-  // TODO: Consider requiring numer <= denom. For all our practical tournament
-  // purposes this should be correct, I think.
   Fraction(uint64_t numer, uint64_t denom);
 
-  // For creating Fractions representing an integer.
+  // For creating Fractions representing a positive integer.
   explicit Fraction(uint64_t intval) : Fraction(intval, 1, nullptr) {}
   Fraction() : Fraction(0) {}
 
