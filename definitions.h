@@ -14,6 +14,7 @@
 #include "absl/synchronization/mutex.h"
 #include "fraction.h"
 #include "match-id.h"
+#include "util.h"
 
 namespace tcgtc {
 
@@ -108,7 +109,9 @@ class PlayerImpl : public std::enable_shared_from_this<PlayerImpl> {
   const std::string& first_name() const { return first_name_; }
   const std::string& username() const { return username_; }
 
-  const std::string& display_name() const { return display_name_; }
+  std::string ErrorStringId() const {
+    return absl::StrCat("Player (", display_name_, ")");
+  }
 
   bool has_played_opp(const Player& p) const;
 

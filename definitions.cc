@@ -100,8 +100,13 @@ absl::Status PlayerImpl::CommitResult(const MatchResult& result,
                               const std::optional<MatchResult>& prev) {
   absl::MutexLock l(&mu_);
   if (matches_.find(result.id) == matches_.end()) {
-    return Err(
-        "Trying to commit a result for a match Player hasn't played.");
+    return Err("Trying to commit result for ", result.id.ErrorStringId(),
+               " ", ErrorStringId()," hasn't played.");
+  }
+  if (prev.has_value() && prev->id != result.id) {
+    return Err("Trying to update ", ErrorStringId(), " ", 
+               prev->id.ErrorStringId() ," result with result for a different ",
+               result.id.ErrorStringId());
   }
 
   auto myself = this_player();
@@ -111,12 +116,6 @@ absl::Status PlayerImpl::CommitResult(const MatchResult& result,
 
   // Remove any previously committed result values for this match.
   if (prev.has_value()) {
-    // This should never actually happen...
-    if (prev->id != result.id) {
-      return Err(
-                    "Trying to update a Player's match result with a "
-                    "previous result for a different match.");
-    }
     games_played_ -= prev->games_played();
     game_points_ -= prev->game_points(myself);
     match_points_ -= prev->match_points(myself);
@@ -128,7 +127,8 @@ absl::Status PlayerImpl::AddMatch(Match m) {
   absl::MutexLock l(&mu_);
   auto me = this_player();
   if (!m->has_player(me)) {
-    return Err("Trying to add a Match in which Player is not a participant.");
+    return Err("Trying to add ", m->id().ErrorStringId(), " in which ",
+               ErrorStringId(), " is not a participant.");
   }
   matches_.insert(std::make_pair(m->id(), m));
   if (!m->is_bye()) {
@@ -163,11 +163,20 @@ PlayerImpl::TieBreakInfo PlayerImpl::ComputeBreakers() const {
       ++num_opps;
     }
   }
-  Fraction divisor(num_opps);
+  // Return a default value of 1.
+  // TODO: Make sure this aligns with MTR. Probably just an R1/2 corner case.
   TieBreakInfo out;
-  out.opp_mwp = omwp_sum / divisor;
-  out.gwp = gwp();
-  out.opp_gwp = ogwp_sum / divisor;
+  if (num_opps == 0) {
+    static const Fraction kOne(1);
+    out.opp_mwp = kOne;
+    out.gwp = kOne;
+    out.opp_gwp = kOne;
+  } else {
+    Fraction divisor(num_opps);
+    out.opp_mwp = omwp_sum / divisor;
+    out.gwp = gwp();
+    out.opp_gwp = ogwp_sum / divisor;
+  }
   return out;
 }
 
@@ -212,19 +221,20 @@ void MatchImpl::Init() {
 
 absl::StatusOr<MatchResult> MatchImpl::confirmed_result() const {
   absl::MutexLock l(&mu_);
-  // Result set by a judge, or if the match is a bye. Use it.
   if (committed_result_.has_value()) return *committed_result_;
 
   // TODO: Include names, match numbers, etc.
   if (!a_result_.has_value()) {
-    return Err(a_->display_name(), " has not reported ");
+    return Err(a_->ErrorStringId(), " has not reported for ",
+               id_.ErrorStringId());
   }
   if (!b_result_.has_value()) {
-    return Err((*b_)->display_name(), " has not reported ");
+    return Err((*b_)->ErrorStringId(), " has not reported for ",
+               id_.ErrorStringId());
   }
 
   if (*a_result_ != *b_result_) {
-    return Err("Players " , a_->display_name(), " and ", (*b_)->display_name(),
+    return Err(a_->ErrorStringId(), " and ", (*b_)->ErrorStringId(),
                " reported different results.");
   }
   return *a_result_;
@@ -232,7 +242,7 @@ absl::StatusOr<MatchResult> MatchImpl::confirmed_result() const {
 
 absl::StatusOr<Player> MatchImpl::opponent(const Player& p) const {
   if (!has_player(p)) {
-    return Err(p->display_name(), " is not in this match.");
+    return Err(p->ErrorStringId(), " is not in this match.");
   }
   if (is_bye()) return Err("This match is a Bye.");
   return p == a_ ? *b_ : a_;
@@ -242,13 +252,14 @@ absl::Status MatchImpl::PlayerReportResult(Player reporter,
                                            MatchResult result) {
   // This shouldn't happen. Bye results are already committed.
   if (is_bye()) {
-    return Err(
-                  "Trying to report a match result for a Bye.");
+    return Err("Trying to report a Match result for a Bye for ", 
+                a_->ErrorStringId());
   }
 
   // Only players can report for their matches.
   if (!has_player(reporter)) {
-    return Err("Reporting player is not in this match.");
+    return Err("Reporting ", reporter->ErrorStringId(), " is not in ",
+               id_.ErrorStringId());
   }
 
   // Run other validity checks on the result.
@@ -278,7 +289,8 @@ absl::Status MatchImpl::CheckResultValidity(const MatchResult& result) const {
   // Reported for the wrong match id.
   // TODO: Consider removing this?
   if (result.id != id_) {
-    return Err("Reported MatchId is invalid.");
+    return Err("Reported ", result.id.ErrorStringId(), " does not equal ", 
+               id_.ErrorStringId());
   }
 
   // Check draw validity.
@@ -287,17 +299,20 @@ absl::Status MatchImpl::CheckResultValidity(const MatchResult& result) const {
     if (result.winner_games_won == result.winner_games_lost) {
       return absl::OkStatus();
     }
-    return Err("Reported drawn match does not have equal game wins.");
+    return Err("Reported draw ", id_.ErrorStringId(), " does not have equal game wins.");
   }
 
   // Check win validity.
-  if (!has_player(*result.winner)) {
-    return Err("Match report has winner not in this match.");
+  auto& winner = *result.winner;
+  if (!has_player(winner)) {
+    return Err(id_.ErrorStringId(), " report has winner ", 
+               winner->ErrorStringId(), " not in this match.");
   }
   if (result.winner_games_won <= result.winner_games_lost) {
     // Match has a winner, but the match result doesn't align with that.
-    return Err(
-              "Match report has a winner but reported game score is invalid.");
+    return Err(id_.ErrorStringId(), " report has a winner ",
+               winner->ErrorStringId(),
+               " but reported games score is invalid.");
   }
   return absl::OkStatus();
 }

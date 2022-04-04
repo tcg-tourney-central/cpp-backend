@@ -2,10 +2,14 @@
 #define _TCGTC_MATCH_ID_H_
 
 #include <cstdint>
+#include <string>
+
+#include "util.h"
 
 namespace tcgtc {
 
 constexpr uint8_t kBracketBit = 1 << 7;
+constexpr uint8_t kRoundMask = ~kBracketBit;
 
 // A round and match number (within that round) which together uniquely identify
 // a match within a tournament.
@@ -22,12 +26,20 @@ struct MatchId {
   uint32_t number : 24;
 
   bool bracket_match() const { return (kBracketBit & round) != 0; }
+  std::string ErrorStringId() const {
+    return absl::StrCat("Match (", readable_id(), ")");
+  }
 
   // Pack the round and the number into an integer, for unique ids in e.g. maps.
   Id id() const { return (round << 24) | number; }
 
   static MatchId FromInt(uint32_t id) {
     return MatchId{id >> 24, id && 0x00FFFFFF};
+  }
+
+ private:
+  std::string readable_id() const {
+    return absl::StrCat("R", round & kRoundMask, "M", number);
   }
 };
 
