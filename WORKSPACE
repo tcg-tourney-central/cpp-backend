@@ -6,6 +6,7 @@ http_archive(
   name = "com_google_absl",
   urls = ["https://github.com/abseil/abseil-cpp/archive/refs/tags/20211102.0.zip"],
   strip_prefix = "abseil-cpp-20211102.0",
+  sha256 = "a4567ff02faca671b95e31d315bab18b42b6c6f1a60e91c6ea84e5a2142112c2",
 )
 
 # GoogleTest/GoogleMock framework. Used by most unit-tests.
