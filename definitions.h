@@ -103,10 +103,12 @@ class PlayerImpl : public std::enable_shared_from_this<PlayerImpl> {
 
   // TODO: Probably determined by the player's persistent stored ID, but can be
   // per-tournament.
-  Player::Id id() { return id_; }
-  const std::string& last_name() { return last_name_; }
-  const std::string& first_name() { return first_name_; }
-  const std::string& username() { return username_; }
+  Player::Id id() const { return id_; }
+  const std::string& last_name() const { return last_name_; }
+  const std::string& first_name() const { return first_name_; }
+  const std::string& username() const { return username_; }
+
+  const std::string& display_name() const { return display_name_; }
 
   bool has_played_opp(const Player& p) const;
 
@@ -141,6 +143,7 @@ class PlayerImpl : public std::enable_shared_from_this<PlayerImpl> {
   const std::string last_name_;
   const std::string first_name_;
   const std::string username_;  // e.g. for online tournaments.
+  const std::string display_name_;  // Used for Match Slips, standings, etc.
 
   // Can't store a std::shared_ptr to ourselves or this would be a memory leak,
   // used to allow `this_player()` to be const-qualified. Cannot be initialized

@@ -10,6 +10,7 @@ cc_library(
   deps = [
     ":fraction",
     ":match-id",
+    ":util",
     "@com_google_absl//absl/base",
     "@com_google_absl//absl/status",
     "@com_google_absl//absl/status:statusor",
@@ -28,3 +29,13 @@ cc_library(
   name = "match-id",
   hdrs = ["match-id.h"],
 )
+
+cc_library(
+  name = "util",
+  hdrs = ["util.h"],
+  deps = [
+    "@com_google_absl//absl/status",
+    "@com_google_absl//absl/strings",
+  ],
+)
+
