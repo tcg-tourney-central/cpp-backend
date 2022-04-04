@@ -212,7 +212,7 @@ MatchImpl::MatchImpl(Player a, std::optional<Player> b, MatchId id)
   : id_(id), a_(a), b_(b) {}
 
 void MatchImpl::Init() {
-  // Initialize our ability to hand out Matches that are equivalent to ourselves.
+  // Initialize our ability to hand out Matches that are this match.
   self_ptr_ = weak_from_this();
 
   // Add this match to the participating players as well.
@@ -301,7 +301,9 @@ absl::Status MatchImpl::CheckResultValidity(const MatchResult& result) const {
     if (result.winner_games_won == result.winner_games_lost) {
       return absl::OkStatus();
     }
-    return Err("Reported draw ", id_.ErrorStringId(), " does not have equal game wins.");
+    return Err("Reported draw ", id_.ErrorStringId(),
+               " does not have equal game wins between ", a_->ErrorStringId(),
+               " and ", (*b_)->ErrorStringId());
   }
 
   // Check win validity.
