@@ -17,16 +17,16 @@
 #include "util.h"
 
 namespace tcgtc {
-
-// Forward declaration for internal implementations of tightly linked types.
-// Matches have players, Players have Matches, Matches have Results, Players
-// have Results, 
+namespace internal {
 class PlayerImpl;
 class MatchImpl;
+}  // namespace internal
 
 // Thin wrapper around a shared_ptr, so the Player class is copyable, with a
 // canonical copy shared by e.g. Tournaments, Matches, etc.
 class Player {
+  friend class ::tcgtc::internal::PlayerImpl;
+  using PlayerImpl = ::tcgtc::internal::PlayerImpl;
  public:
   using Id = uint64_t;
 
@@ -46,7 +46,6 @@ class Player {
   PlayerImpl& operator*() const { return *get(); }
 
  private:
-  friend class ::tcgtc::PlayerImpl;
   explicit Player(std::shared_ptr<PlayerImpl> player) : player_(player) {}
 
   std::shared_ptr<PlayerImpl> player_;
@@ -70,11 +69,14 @@ struct MatchResult {
 bool operator==(const MatchResult& l, const MatchResult& r);
 bool operator!=(const MatchResult& l, const MatchResult& r);
 
+
 // Thin wrapper around a shared_ptr, so the Player class is copyable, with a
 // canonical copy shared by e.g. Tournaments, Players, etc.
 //
 // TODO: Generalize this so we can take teams and not just players.
 class Match {
+  friend class ::tcgtc::internal::MatchImpl;
+  using MatchImpl = ::tcgtc::internal::MatchImpl;
  public:
   static Match CreateBye(Player p, MatchId id);
   static Match CreatePairing(Player a, Player b, MatchId id);
@@ -84,15 +86,15 @@ class Match {
   MatchImpl& operator*() const { return *get(); }
 
  private:
-  friend class ::tcgtc::MatchImpl;
   explicit Match(std::shared_ptr<MatchImpl> match) : match_(match) {}
 
   std::shared_ptr<MatchImpl> match_;
 };
 
 
-
+namespace internal {
 // IMPLEMENTATION --------------------------------------------------------------
+
 
 // TODO: Add synchronization, this will be important for performant
 // match-reporting, so we don't hammer a "global" (per-tournament) Mutex.
@@ -173,6 +175,7 @@ bool operator!=(const PlayerImpl::TieBreakInfo& l,
 bool operator<(const PlayerImpl::TieBreakInfo& l,
                const PlayerImpl::TieBreakInfo& r);
 
+
 // TODO: Add synchronization, this will be important for performant
 // match-reporting, so we don't hammer a "global" (per-tournament) Mutex.
 class MatchImpl : public std::enable_shared_from_this<MatchImpl> {
@@ -236,6 +239,7 @@ class MatchImpl : public std::enable_shared_from_this<MatchImpl> {
   // TODO: Add a log of extensions, GRVs, etc.
 };
 
+}  // namespace internal
 }  // namespace tcgtc
 
 #endif // _TCGTC_DEFINITIONS_H_

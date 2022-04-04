@@ -81,8 +81,7 @@ Match Match::CreatePairing(Player a, Player b, MatchId id) {
 }
 
 
-
-// PlayerImpl ------------------------------------------------------------------
+namespace internal {
 namespace {
 std::string ComputeDisplayName(const Player::Options& opts) {
   if (opts.last_name.empty() || opts.first_name.empty()) {
@@ -92,6 +91,9 @@ std::string ComputeDisplayName(const Player::Options& opts) {
   return absl::StrCat(opts.last_name, ",", opts.first_name);
 }
 }  // namespace
+
+
+// PlayerImpl ------------------------------------------------------------------
 PlayerImpl::PlayerImpl(const Player::Options& opts)
   : id_(opts.id), last_name_(opts.last_name), first_name_(opts.first_name),
     username_(opts.username), display_name_(ComputeDisplayName(opts)) {}
@@ -184,6 +186,7 @@ PlayerImpl::TieBreakInfo PlayerImpl::ComputeBreakers() const {
 
 // PlayerImpl::TieBreakInfo ----------------------------------------------------
 namespace {
+// Use a packed tuple of references for lex-sorting OMWP, GWP, OGWP.
 using RefTup = std::tuple<const Fraction&, const Fraction&, const Fraction&>;
 }  // namespace
 bool operator==(const PlayerImpl::TieBreakInfo& l, 
@@ -287,7 +290,6 @@ absl::Status MatchImpl::JudgeSetResult(MatchResult result) {
 // TODO: This validation should perhaps exist on parse, rather than here.
 absl::Status MatchImpl::CheckResultValidity(const MatchResult& result) const {
   // Reported for the wrong match id.
-  // TODO: Consider removing this?
   if (result.id != id_) {
     return Err("Reported ", result.id.ErrorStringId(), " does not equal ", 
                id_.ErrorStringId());
@@ -312,7 +314,7 @@ absl::Status MatchImpl::CheckResultValidity(const MatchResult& result) const {
     // Match has a winner, but the match result doesn't align with that.
     return Err(id_.ErrorStringId(), " report has a winner ",
                winner->ErrorStringId(),
-               " but reported games score is invalid.");
+               " but reported games score is invalid for a won match.");
   }
   return absl::OkStatus();
 }
@@ -328,4 +330,5 @@ absl::Status MatchImpl::CommitResult(const MatchResult& result) {
   return absl::OkStatus();
 }
 
+}  // namespace internal
 }  // namespace tcgtc
