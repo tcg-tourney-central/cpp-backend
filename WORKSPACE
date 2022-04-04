@@ -4,8 +4,8 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 # absl
 http_archive(
   name = "com_google_absl",
-  urls = ["https://github.com/abseil/abseil-cpp/archive/38db52adb2eabc0969195b33b30763e0a1285ef9.zip"],
-  strip_prefix = "abseil-cpp-38db52adb2eabc0969195b33b30763e0a1285ef9",
+  urls = ["https://github.com/abseil/abseil-cpp/archive/refs/tags/20211102.0.zip"],
+  strip_prefix = "abseil-cpp-20211102.0",
 )
 
 # GoogleTest/GoogleMock framework. Used by most unit-tests.

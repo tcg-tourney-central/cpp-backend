@@ -11,6 +11,8 @@ cc_library(
     ":fraction",
     ":match-id",
     "@com_google_absl//absl/base",
+    "@com_google_absl//absl/status",
+    "@com_google_absl//absl/status:statusor",
     "@com_google_absl//absl/synchronization",
   ],
   copts = ["/std:c++17"],

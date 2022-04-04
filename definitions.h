@@ -9,6 +9,8 @@
 #include <string>
 
 #include "absl/base/thread_annotations.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/synchronization/mutex.h"
 #include "fraction.h"
 #include "match-id.h"
