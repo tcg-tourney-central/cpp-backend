@@ -21,6 +21,7 @@ class Fraction {
 
   // For creating Fractions representing an integer.
   explicit Fraction(uint64_t intval) : Fraction(intval, 1, nullptr) {}
+  Fraction() : Fraction(0) {}
 
   // Order operations.
   bool operator==(const Fraction& other) const;
@@ -31,6 +32,7 @@ class Fraction {
   Fraction operator+(const Fraction& other) const;
   Fraction operator*(const Fraction& other) const;
   Fraction operator/(const Fraction& other) const;
+  Fraction& operator+=(const Fraction& other);
 
   // Should only be used for printing and visualization.
   //

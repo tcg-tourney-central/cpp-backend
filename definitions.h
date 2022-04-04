@@ -112,10 +112,12 @@ class PlayerImpl : public std::enable_shared_from_this<PlayerImpl> {
   Fraction mwp() const { return Fraction(match_points_, 3 * matches_played()); }
   Fraction gwp() const { return Fraction(game_points_, 3 * games_played_); }
 
-  // This player's averaged Opponent Match Win %
-  Fraction opp_mwp() const ABSL_LOCKS_EXCLUDED(mu_);
-  // This player's averaged Opponent Game Win %
-  Fraction opp_gwp() const ABSL_LOCKS_EXCLUDED(mu_);
+  struct TieBreakInfo {
+    Fraction opp_mwp;
+    Fraction gwp;
+    Fraction opp_gwp;
+  };
+  TieBreakInfo ComputeBreakers() const ABSL_LOCKS_EXCLUDED(mu_);
 
   bool has_played_opp(const Player& p) const;
 
@@ -158,6 +160,12 @@ class PlayerImpl : public std::enable_shared_from_this<PlayerImpl> {
 
   // TODO: Add a log of GRVs, warnings, etc.
 };
+bool operator==(const PlayerImpl::TieBreakInfo& l, 
+                const PlayerImpl::TieBreakInfo& r);
+bool operator!=(const PlayerImpl::TieBreakInfo& l,
+                const PlayerImpl::TieBreakInfo& r);
+bool operator<(const PlayerImpl::TieBreakInfo& l,
+               const PlayerImpl::TieBreakInfo& r);
 
 // TODO: Add synchronization, this will be important for performant
 // match-reporting, so we don't hammer a "global" (per-tournament) Mutex.

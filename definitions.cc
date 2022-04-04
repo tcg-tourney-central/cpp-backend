@@ -19,18 +19,13 @@ bool operator==(const Player& l, const Player& r) {
 }
 
 bool operator<(const Player& l, const Player& r) {
+  // Skip the OMWP computations when possible.
   uint16_t lhsmp = l->match_points();
   uint16_t rhsmp = r->match_points();
-  return lhsmp < rhsmp;
-
-  /*
   if (lhsmp != rhsmp) return lhsmp < rhsmp;
 
   // Tie-break within equal match points.
-  auto lhstb = std::make_tuple(lhs->opp_mwp(), lhs->gwp(), lhs->opp_gwp());
-  auto rhstb = std::make_tuple(rhs->opp_mwp(), rhs->gwp(), rhs->opp_gwp());
-  return lhstb < rhstb;
-  */
+  return l->ComputeBreakers() < r->ComputeBreakers();
 }
 
 
@@ -126,36 +121,49 @@ bool PlayerImpl::has_played_opp(const Player& p) const {
   return opponents_.find(p.id()) != opponents_.end();
 }
 
-Fraction PlayerImpl::opp_mwp() const {
+PlayerImpl::TieBreakInfo PlayerImpl::ComputeBreakers() const {
   absl::MutexLock l(&mu_);
   auto myself = this_player();
-  Fraction sum(0);
+  Fraction omwp_sum(0);
+  Fraction ogwp_sum(0);
   uint16_t num_opps = 0;
   for (const auto& [id, m] : matches_) {
     auto opp = m->opponent(myself);
-    if (!opp.has_value()) continue;
-    sum = sum + (*opp)->mwp().ApplyMtrBound();
+    if (!opp.has_value()) continue;  // This match was a bye.
+    omwp_sum += (*opp)->mwp().ApplyMtrBound();
+    ogwp_sum += (*opp)->gwp().ApplyMtrBound();
     ++num_opps;
   }
   Fraction divisor(num_opps);
-  return sum / divisor;
+  TieBreakInfo out;
+  out.opp_mwp = omwp_sum / divisor;
+  out.gwp = gwp();
+  out.opp_gwp = ogwp_sum / divisor;
+  return out;
 }
 
-Fraction PlayerImpl::opp_gwp() const {
-  absl::MutexLock l(&mu_);
-  auto myself = this_player();
-  Fraction sum(0);
-  uint16_t num_opps = 0;
-  for (const auto& [id, m] : matches_) {
-    auto opp = m->opponent(myself);
-    if (!opp.has_value()) continue;
-    sum = sum + (*opp)->gwp().ApplyMtrBound();
-    ++num_opps;
-  }
-  Fraction divisor(num_opps);
-  return sum / divisor;
-}
 
+
+// PlayerImpl::TieBreakInfo ----------------------------------------------------
+namespace {
+using RefTup = std::tuple<const Fraction&, const Fraction&, const Fraction&>;
+}  // namespace
+bool operator==(const PlayerImpl::TieBreakInfo& l, 
+                const PlayerImpl::TieBreakInfo& r) {
+  RefTup lhs(l.opp_mwp, l.gwp, l.opp_gwp);
+  RefTup rhs(r.opp_mwp, r.gwp, r.opp_gwp);
+  return lhs == rhs;
+}
+bool operator!=(const PlayerImpl::TieBreakInfo& l,
+                const PlayerImpl::TieBreakInfo& r) {
+  return !(l == r);
+}
+bool operator<(const PlayerImpl::TieBreakInfo& l,
+               const PlayerImpl::TieBreakInfo& r) {
+  RefTup lhs(l.opp_mwp, l.gwp, l.opp_gwp);
+  RefTup rhs(r.opp_mwp, r.gwp, r.opp_gwp);
+  return lhs < rhs;
+}
 
 
 // MatchImpl -------------------------------------------------------------------

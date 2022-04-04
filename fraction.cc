@@ -50,6 +50,11 @@ Fraction Fraction::operator+(const Fraction& other) const {
   return Fraction(tmpn / div, tmpd / div, nullptr);
 }
 
+Fraction& Fraction::operator+=(const Fraction& other) {
+  *this = *this + other;
+  return *this;
+}
+
 // Assuming a,c >= 0, b,d > 0, then:
 // a/b * c/d == a*c/b*d
 Fraction Fraction::operator*(const Fraction& other) const {
