@@ -1,5 +1,7 @@
 #include "fraction.h"
 
+#include <cassert>
+
 namespace tcgtc {
 namespace {
 
