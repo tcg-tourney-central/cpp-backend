@@ -108,6 +108,8 @@ class PlayerImpl : public std::enable_shared_from_this<PlayerImpl> {
   const std::string& first_name() { return first_name_; }
   const std::string& username() { return username_; }
 
+  bool has_played_opp(const Player& p) const;
+
   uint16_t match_points() const { return match_points_; }
   Fraction mwp() const { return Fraction(match_points_, 3 * matches_played()); }
   Fraction gwp() const { return Fraction(game_points_, 3 * games_played_); }
@@ -119,15 +121,13 @@ class PlayerImpl : public std::enable_shared_from_this<PlayerImpl> {
   };
   TieBreakInfo ComputeBreakers() const ABSL_LOCKS_EXCLUDED(mu_);
 
-  bool has_played_opp(const Player& p) const;
-
   // Commit a result, and if there is a previous result for that match, erase
   // that from the cache.
-  bool CommitResult(const MatchResult& result,
+  absl::Status CommitResult(const MatchResult& result,
                     const std::optional<MatchResult>& prev)
     ABSL_LOCKS_EXCLUDED(mu_);
 
-  void AddMatch(Match m) ABSL_LOCKS_EXCLUDED(mu_);
+  absl::Status AddMatch(Match m) ABSL_LOCKS_EXCLUDED(mu_);
 
  private:
   // We want these implementations created only by the container classes.
@@ -180,20 +180,20 @@ class MatchImpl : public std::enable_shared_from_this<MatchImpl> {
   bool has_player(const Player& p) const {
     return a_ == p || (b_.has_value() && *b_ == p);
   }
-  std::optional<Player> opponent(const Player& p) const;
+  absl::StatusOr<Player> opponent(const Player& p) const;
 
   // Only returns a value if both players have reported the same result.
   //
   // TODO: Use absl::StatusOr<MatchResult>
-  std::optional<MatchResult> confirmed_result() const;
+  absl::StatusOr<MatchResult> confirmed_result() const;
 
   // Returns false if the reporter or reported result is invalid.
-  bool PlayerReportResult(Player reporter, MatchResult result);
+  absl::Status PlayerReportResult(Player reporter, MatchResult result);
 
   // Returns false if the result is invalid. If there is already a committed
   // result, handles diffing the game scores from the previous committed
   // values.
-  bool JudgeSetResult(MatchResult result);
+  absl::Status JudgeSetResult(MatchResult result);
 
  private:
   // We want these implementations created only by the container classes.
@@ -203,11 +203,10 @@ class MatchImpl : public std::enable_shared_from_this<MatchImpl> {
 
   // Commits the result back to the Player(s), updating their matches/games
   // played and match/game points.
-  bool CommitResult(const MatchResult& result)
+  absl::Status CommitResult(const MatchResult& result)
     ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
-  // TODO: Migrate to absl::Status
-  bool CheckResultValidity(const MatchResult& result) const;
+  absl::Status CheckResultValidity(const MatchResult& result) const;
 
   const MatchId id_;
   const Player a_;

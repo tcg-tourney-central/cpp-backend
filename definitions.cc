@@ -86,10 +86,13 @@ PlayerImpl::PlayerImpl(const Player::Options& opts)
   : id_(opts.id), last_name_(opts.last_name), first_name_(opts.first_name),
     username_(opts.username) {}
 
-bool PlayerImpl::CommitResult(const MatchResult& result,
+absl::Status PlayerImpl::CommitResult(const MatchResult& result,
                               const std::optional<MatchResult>& prev) {
   absl::MutexLock l(&mu_);
-  if (matches_.find(result.id) == matches_.end()) return false;
+  if (matches_.find(result.id) == matches_.end()) {
+    return absl::InvalidArgumentError(
+        "Trying to commit a result for a match Player hasn't played.");
+  }
 
   auto myself = this_player();
   games_played_ += result.games_played();
@@ -99,21 +102,32 @@ bool PlayerImpl::CommitResult(const MatchResult& result,
   // Remove any previously committed result values for this match.
   if (prev.has_value()) {
     // This should never actually happen...
-    if (prev->id != result.id) return false;
+    if (prev->id != result.id) {
+      return absl::InvalidArgumentError(
+                    "Trying to update a Player's match result with a "
+                    "previous result for a different match.");
+    }
     games_played_ -= prev->games_played();
     game_points_ -= prev->game_points(myself);
     match_points_ -= prev->match_points(myself);
   }
-  return true;
+  return absl::OkStatus();
 }
 
-void PlayerImpl::AddMatch(Match m) {
+absl::Status PlayerImpl::AddMatch(Match m) {
   absl::MutexLock l(&mu_);
+  auto me = this_player();
+  if (!m->has_player(me)) {
+    return absl::InvalidArgumentError(
+                 "Trying to add a Match in which Player is not a participant.");
+  }
   matches_.insert(std::make_pair(m->id(), m));
   if (!m->is_bye()) {
-    auto opp = m->opponent(this_player());
+    auto opp = m->opponent(me);
+    if (!opp.ok()) return opp.status();
     opponents_.insert(std::make_pair(opp->id(), *opp));
   }
+  return absl::OkStatus();
 }
 
 bool PlayerImpl::has_played_opp(const Player& p) const {
@@ -123,13 +137,13 @@ bool PlayerImpl::has_played_opp(const Player& p) const {
 
 PlayerImpl::TieBreakInfo PlayerImpl::ComputeBreakers() const {
   absl::MutexLock l(&mu_);
-  auto myself = this_player();
+  auto me = this_player();
   Fraction omwp_sum(0);
   Fraction ogwp_sum(0);
   uint16_t num_opps = 0;
   for (const auto& [id, m] : matches_) {
-    auto opp = m->opponent(myself);
-    if (!opp.has_value()) continue;  // This match was a bye.
+    auto opp = m->opponent(me);
+    if (!opp.ok()) continue;  // This match was a bye.
     omwp_sum += (*opp)->mwp().ApplyMtrBound();
     ogwp_sum += (*opp)->gwp().ApplyMtrBound();
     ++num_opps;
@@ -175,39 +189,54 @@ void MatchImpl::Init() {
   self_ptr_ = weak_from_this();
 
   // Add this match to the participating players as well.
-  a_->AddMatch(this_match());
-  if (b_.has_value()) (*b_)->AddMatch(this_match());
+  assert(a_->AddMatch(this_match()).ok());
+  if (b_.has_value()) {
+    assert((*b_)->AddMatch(this_match()).ok());
+  }
 }
 
-std::optional<MatchResult> MatchImpl::confirmed_result() const {
+absl::StatusOr<MatchResult> MatchImpl::confirmed_result() const {
   absl::MutexLock l(&mu_);
   // Result set by a judge, or if the match is a bye. Use it.
-  if (committed_result_.has_value()) return committed_result_;
+  if (committed_result_.has_value()) return *committed_result_;
 
-  // Result has not been confirmed.
-  if (!a_result_.has_value() || !b_result_.has_value()) return std::nullopt;
+  // TODO: Include names, match numbers, etc.
+  if (!a_result_.has_value()) {
+    return absl::FailedPreconditionError("Player A has not reported.");
+  }
+  if (!b_result_.has_value()) {
+    return absl::FailedPreconditionError("Player B has not reported.");
+  }
 
-  if (*a_result_ == *b_result_) return *a_result_;
-
-  // TODO: Add an error message.
-  return std::nullopt;
+  if (*a_result_ != *b_result_) {
+    return absl::FailedPreconditionError("Players reported different results.");
+  }
+  return *a_result_;
 }
 
-std::optional<Player> MatchImpl::opponent(const Player& p) const {
-  // TODO: Consider a validity check that p is in this match.
-  if (is_bye()) return std::nullopt;
+absl::StatusOr<Player> MatchImpl::opponent(const Player& p) const {
+  if (!has_player(p)) {
+    return absl::InvalidArgumentError("Player not in this match.");
+  }
+  if (is_bye()) return absl::InvalidArgumentError("This match is a Bye.");
   return p == a_ ? *b_ : a_;
 }
 
-bool MatchImpl::PlayerReportResult(Player reporter, MatchResult result) {
+absl::Status MatchImpl::PlayerReportResult(Player reporter, 
+                                           MatchResult result) {
   // This shouldn't happen. Bye results are already committed.
-  if (is_bye()) return false;
+  if (is_bye()) {
+    return absl::InvalidArgumentError(
+                  "Trying to report a match result for a Bye.");
+  }
 
   // Only players can report for their matches.
-  if (!has_player(reporter)) return false;
+  if (!has_player(reporter)) {
+    return absl::InvalidArgumentError("Reporting player is not in this match.");
+  }
 
   // Run other validity checks on the result.
-  if (!CheckResultValidity(result)) return false;
+  if (auto out = CheckResultValidity(result); !out.ok()) return out;
 
   absl::MutexLock l(&mu_);
   if (reporter == a_) {
@@ -217,46 +246,57 @@ bool MatchImpl::PlayerReportResult(Player reporter, MatchResult result) {
   }
 
   // If this report has confirmed the result, commit it back to the players.
-  if (auto conf = confirmed_result(); conf.has_value()) {
-    return CommitResult(*conf);
-  }
+  if (auto conf = confirmed_result(); conf.ok()) return CommitResult(*conf);
 
-  // The report was successful whether or not we confirmed/committed.
-  return true;
+  // The report was successful even though we didn't confirm+commit.
+  return absl::OkStatus();
 }
 
-bool MatchImpl::JudgeSetResult(MatchResult result) {
-  return CheckResultValidity(result) && CommitResult(result);
+absl::Status MatchImpl::JudgeSetResult(MatchResult result) {
+  if (auto out = CheckResultValidity(result); !out.ok()) return out;
+  return CommitResult(result);
 }
 
 // TODO: This validation should perhaps exist on parse, rather than here.
-bool MatchImpl::CheckResultValidity(const MatchResult& result) const {
+absl::Status MatchImpl::CheckResultValidity(const MatchResult& result) const {
   // Reported for the wrong match id.
   // TODO: Consider removing this?
-  if (result.id != id_) return false;
+  if (result.id != id_) {
+    return absl::InvalidArgumentError("Reported MatchId is invalid.");
+  }
 
   // Check draw validity.
   if (!result.winner.has_value()) {
     // No winner implies match was drawn. Check that the wins align.
-    return result.winner_games_won == result.winner_games_lost;
+    if (result.winner_games_won == result.winner_games_lost) {
+      return absl::OkStatus();
+    }
+    return absl::InvalidArgumentError(
+                  "Reported drawn match does not have equal game wins.");
   }
 
   // Check win validity.
-  if (!has_player(*result.winner)) return false;
+  if (!has_player(*result.winner)) {
+    return absl::InvalidArgumentError(
+                  "Match report has winner not in this match.");
+  }
   if (result.winner_games_won <= result.winner_games_lost) {
     // Match has a winner, but the match result doesn't align with that.
-    return false;
+    return absl::InvalidArgumentError(
+              "Match report has a winner but reported game score is invalid.");
   }
-  return true;
+  return absl::OkStatus();
 }
 
-bool MatchImpl::CommitResult(const MatchResult& result) {
-  if (!a_->CommitResult(result, committed_result_)) return false;
+absl::Status MatchImpl::CommitResult(const MatchResult& result) {
+  auto out = a_->CommitResult(result, committed_result_);
+  if (!out.ok()) return out;
   if (b_.has_value()) {
-    if (!(*b_)->CommitResult(result, committed_result_)) return false;
+    out = (*b_)->CommitResult(result, committed_result_);
+    if (!out.ok()) return out;
   }
   committed_result_ = result;
-  return true;
+  return absl::OkStatus();
 }
 
 }  // namespace tcgtc
