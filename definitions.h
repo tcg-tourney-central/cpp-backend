@@ -133,12 +133,15 @@ class PlayerImpl : public std::enable_shared_from_this<PlayerImpl> {
 
   uint16_t matches_played() const { return matches_.size(); }
 
-  Player::Id id_;
-  std::string last_name_;
-  std::string first_name_;
-  std::string username_;  // e.g. for online tournaments.
+  const Player::Id id_;
+  const std::string last_name_;
+  const std::string first_name_;
+  const std::string username_;  // e.g. for online tournaments.
 
-  // Can't store a std::shared_ptr to ourselves or this would be a memory leak.
+  // Can't store a std::shared_ptr to ourselves or this would be a memory leak,
+  // used to allow `this_player()` to be const-qualified. Cannot be initialized
+  // in the constructor, as `weak_from_this()` is unavailable, but otherwise is
+  // effectively const.
   std::weak_ptr<PlayerImpl> self_ptr_;
 
   // Local cache of results. Modified by the matches when a result is committed.
@@ -199,7 +202,9 @@ class MatchImpl : public std::enable_shared_from_this<MatchImpl> {
   const std::optional<Player> b_;
 
   // Can't store a std::shared_ptr to ourselves or this would be a memory leak,
-  // used to allows `this_match()` to be const-qualified.
+  // used to allow `this_match()` to be const-qualified. Cannot be initialized
+  // in the constructor, as `weak_from_this()` is unavailable, but otherwise is
+  // effectively const.
   std::weak_ptr<MatchImpl> self_ptr_;
 
   // Reported results, per player.

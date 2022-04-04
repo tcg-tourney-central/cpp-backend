@@ -87,7 +87,9 @@ Match Match::CreatePairing(Player a, Player b, MatchId id) {
 
 // PlayerImpl ------------------------------------------------------------------
 // TODO: Fill this out.
-PlayerImpl::PlayerImpl(const Player::Options& opts) {}
+PlayerImpl::PlayerImpl(const Player::Options& opts)
+  : id_(opts.id), last_name_(opts.last_name), first_name_(opts.first_name),
+    username_(opts.username) {}
 
 bool PlayerImpl::CommitResult(const MatchResult& result,
                               const std::optional<MatchResult>& prev) {
