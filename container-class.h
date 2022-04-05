@@ -19,7 +19,6 @@ class ContainerClass {
   Impl& me() const { return *get(); }
   ContainerClass() = delete;
 
-  // Takes ownership of the pointer.
   explicit ContainerClass(std::shared_ptr<Impl> impl) : impl_(std::move(impl)) {
     assert(impl != nullptr);
   }

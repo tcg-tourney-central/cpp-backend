@@ -32,7 +32,6 @@ class Round : public ContainerClass<internal::RoundImpl> {
   using Id = uint8_t;
 
  private:
-  // Takes ownership of the pointer.
   explicit Round(std::shared_ptr<RoundImpl> impl)
     : ContainerClass(std::move(impl)) {}
 };
