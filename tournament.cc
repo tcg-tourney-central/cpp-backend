@@ -143,7 +143,7 @@ Round RoundImpl::CreateRound(const Options& opts) {
 
 // Initializes this round, including generating pairings.
 absl::Status RoundImpl::Init() {
-  self_ptr_ = weak_from_this();
+  InitSelfPtr();
 
   return GeneratePairings();
 }

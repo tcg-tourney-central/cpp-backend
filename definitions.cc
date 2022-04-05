@@ -11,7 +11,7 @@ Player Player::CreatePlayer(Options opts) {
   return p;
 }
 
-uint64_t Player::id() const { return player_->id(); }
+uint64_t Player::id() const { return me().id(); }
 
 bool operator==(const Player& l, const Player& r) {
   if (l.id() != r.id()) return false;
@@ -213,8 +213,7 @@ MatchImpl::MatchImpl(Player a, std::optional<Player> b, MatchId id)
   : id_(id), a_(a), b_(b) {}
 
 void MatchImpl::Init() {
-  // Initialize our ability to hand out Matches that are this match.
-  self_ptr_ = weak_from_this();
+  InitSelfPtr();
 
   // Add this match to the participating players as well.
   assert(a_->AddMatch(this_match()).ok());

@@ -5,7 +5,7 @@ load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
 
 cc_library(
   name = "definitions",
-  hdrs = ["definitions.h"],
+  hdrs = ["definitions.h", "container-class.h"],
   srcs = ["definitions.cc"],
   deps = [
     ":fraction",

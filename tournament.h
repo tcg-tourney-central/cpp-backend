@@ -24,24 +24,20 @@ enum class BracketSize : uint8_t {
   kTop8 = 8,
 };
 
-class Round {
+class Round : public ContainerClass<internal::RoundImpl> {
   friend class ::tcgtc::internal::RoundImpl;
   using RoundImpl = ::tcgtc::internal::RoundImpl;
  public:
   // TODO: Consolidate this with MatchId.round;
   using Id = uint8_t;
 
-  RoundImpl* get() const { return round_.get(); }
-  RoundImpl* operator->() const { return get(); }
-  RoundImpl& operator*() const { return *get(); }
-
  private:
-  explicit Round(std::shared_ptr<RoundImpl> round) : round_(round) {}
-
-  std::shared_ptr<RoundImpl> round_;
+  // Takes ownership of the pointer.
+  explicit Round(std::shared_ptr<RoundImpl> impl)
+    : ContainerClass(std::move(impl)) {}
 };
 
-class Tournament {
+class Tournament : MemoryManagedImplementation<Tournament> {
  public:
   struct Options {
     uint8_t swiss_rounds = 0;
@@ -111,7 +107,7 @@ class Tournament {
 
 namespace internal {
 
-class RoundImpl : public std::enable_shared_from_this<RoundImpl> {
+class RoundImpl : public MemoryManagedImplementation<RoundImpl> {
  public:
   struct Options {
     Round::Id id;
@@ -134,18 +130,12 @@ class RoundImpl : public std::enable_shared_from_this<RoundImpl> {
    
  private:
   explicit RoundImpl(const Options& opts);
-  Round this_round() const { return Round(self_ptr_.lock()); }
+  Round this_round() const { return Round(self_copy()); }
 
   absl::Status GeneratePairings();
 
   const Round::Id id_;
   Tournament* const parent_;
-
-  // Can't store a std::shared_ptr to ourselves or this would be a memory leak,
-  // used to allow `this_round()` to be const-qualified. Cannot be initialized
-  // in the constructor, as `weak_from_this()` is unavailable, but otherwise is
-  // effectively const.
-  std::weak_ptr<RoundImpl> self_ptr_;
 
   mutable absl::Mutex mu_;
 

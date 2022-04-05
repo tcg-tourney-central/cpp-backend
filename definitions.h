@@ -12,6 +12,7 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/synchronization/mutex.h"
+#include "container-class.h"
 #include "fraction.h"
 #include "match-id.h"
 #include "util.h"
@@ -24,7 +25,7 @@ class MatchImpl;
 
 // Thin wrapper around a shared_ptr, so the Player class is copyable, with a
 // canonical copy shared by e.g. Tournaments, Matches, etc.
-class Player {
+class Player : public ContainerClass<internal::PlayerImpl> {
   friend class ::tcgtc::internal::PlayerImpl;
   using PlayerImpl = ::tcgtc::internal::PlayerImpl;
  public:
@@ -38,17 +39,12 @@ class Player {
   };
   static Player CreatePlayer(Options opts);
 
-  // TODO: external (forwarding) API.
+  // TODO: Remove this in favor of indirection
   Id id() const;
 
-  PlayerImpl* get() const { return player_.get(); }
-  PlayerImpl* operator->() const { return get(); }
-  PlayerImpl& operator*() const { return *get(); }
-
  private:
-  explicit Player(std::shared_ptr<PlayerImpl> player) : player_(player) {}
-
-  std::shared_ptr<PlayerImpl> player_;
+  explicit Player(std::shared_ptr<PlayerImpl> impl)
+    : ContainerClass(std::move(impl)) {}
 };
 bool operator==(const Player& l, const Player& r);
 bool operator<(const Player& l, const Player& r);
@@ -74,21 +70,16 @@ bool operator!=(const MatchResult& l, const MatchResult& r);
 // canonical copy shared by e.g. Tournaments, Players, etc.
 //
 // TODO: Generalize this so we can take teams and not just players.
-class Match {
+class Match : public ContainerClass<internal::MatchImpl> {
   friend class ::tcgtc::internal::MatchImpl;
   using MatchImpl = ::tcgtc::internal::MatchImpl;
  public:
   static Match CreateBye(Player p, MatchId id);
   static Match CreatePairing(Player a, Player b, MatchId id);
 
-  MatchImpl* get() const { return match_.get(); }
-  MatchImpl* operator->() const { return get(); }
-  MatchImpl& operator*() const { return *get(); }
-
  private:
-  explicit Match(std::shared_ptr<MatchImpl> match) : match_(match) {}
-
-  std::shared_ptr<MatchImpl> match_;
+  explicit Match(std::shared_ptr<MatchImpl> impl)
+    : ContainerClass(std::move(impl)) {}
 };
 
 
@@ -97,11 +88,11 @@ namespace internal {
 
 
 
-class PlayerImpl : public std::enable_shared_from_this<PlayerImpl> {
+class PlayerImpl : public MemoryManagedImplementation<PlayerImpl> {
  public:
   // Cannot be called during the constructor as `weak_from_this()` is not
   // available, so we called it immediately after.
-  void Init() { self_ptr_ = weak_from_this(); } 
+  void Init() { InitSelfPtr(); } 
 
   // TODO: Probably determined by the player's persistent stored ID, but can be
   // per-tournament.
@@ -143,7 +134,7 @@ class PlayerImpl : public std::enable_shared_from_this<PlayerImpl> {
   // We want these implementations created only by the container classes.
   friend class Player;
   explicit PlayerImpl(const Player::Options& opts);
-  Player this_player() const { return Player(self_ptr_.lock()); }
+  Player this_player() const { return Player(self_copy()); }
 
   uint16_t matches_played() const { return matches_.size(); }
 
@@ -152,12 +143,6 @@ class PlayerImpl : public std::enable_shared_from_this<PlayerImpl> {
   const std::string first_name_;
   const std::string username_;  // e.g. for online tournaments.
   const std::string display_name_;  // Used for Match Slips, standings, etc.
-
-  // Can't store a std::shared_ptr to ourselves or this would be a memory leak,
-  // used to allow `this_player()` to be const-qualified. Cannot be initialized
-  // in the constructor, as `weak_from_this()` is unavailable, but otherwise is
-  // effectively const.
-  std::weak_ptr<PlayerImpl> self_ptr_;
 
   mutable absl::Mutex mu_;
 
@@ -180,7 +165,7 @@ bool operator<(const PlayerImpl::TieBreakInfo& l,
 
 
 
-class MatchImpl : public std::enable_shared_from_this<MatchImpl> {
+class MatchImpl : public MemoryManagedImplementation<MatchImpl> {
  public:
   // Cannot be called during the constructor as `weak_from_this()` is not
   // available, so we called it immediately after.
@@ -210,7 +195,7 @@ class MatchImpl : public std::enable_shared_from_this<MatchImpl> {
   // We want these implementations created only by the container classes.
   friend class Match;
   MatchImpl(Player a, std::optional<Player> b, MatchId id);
-  Match this_match() const { return Match(self_ptr_.lock()); }
+  Match this_match() const { return Match(self_copy()); }
 
   // Commits the result back to the Player(s), updating their matches/games
   // played and match/game points.
