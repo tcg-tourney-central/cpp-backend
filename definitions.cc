@@ -81,6 +81,8 @@ Match Match::CreatePairing(Player a, Player b, MatchId id) {
 }
 
 
+
+
 namespace internal {
 namespace {
 std::string ComputeDisplayName(const Player::Options& opts) {
@@ -146,7 +148,7 @@ bool PlayerImpl::has_played_opp(const Player& p) const {
   return opponents_.find(p.id()) != opponents_.end();
 }
 
-PlayerImpl::TieBreakInfo PlayerImpl::ComputeBreakers() const {
+TieBreakInfo PlayerImpl::ComputeBreakers() const {
   absl::MutexLock l(&mu_);
   auto me = this_player();
   Fraction omwp_sum(0);
@@ -169,6 +171,7 @@ PlayerImpl::TieBreakInfo PlayerImpl::ComputeBreakers() const {
   // Return a default value of 1.
   // TODO: Make sure this aligns with MTR. Probably just an R1/2 corner case.
   TieBreakInfo out;
+  out.match_points = match_points_;
   if (num_opps == 0) {
     static const Fraction kOne(1);
     out.opp_mwp = kOne;
@@ -183,29 +186,6 @@ PlayerImpl::TieBreakInfo PlayerImpl::ComputeBreakers() const {
   return out;
 }
 
-
-
-// PlayerImpl::TieBreakInfo ----------------------------------------------------
-namespace {
-// Use a packed tuple of references for lex-sorting OMWP, GWP, OGWP.
-using RefTup = std::tuple<const Fraction&, const Fraction&, const Fraction&>;
-}  // namespace
-bool operator==(const PlayerImpl::TieBreakInfo& l, 
-                const PlayerImpl::TieBreakInfo& r) {
-  RefTup lhs(l.opp_mwp, l.gwp, l.opp_gwp);
-  RefTup rhs(r.opp_mwp, r.gwp, r.opp_gwp);
-  return lhs == rhs;
-}
-bool operator!=(const PlayerImpl::TieBreakInfo& l,
-                const PlayerImpl::TieBreakInfo& r) {
-  return !(l == r);
-}
-bool operator<(const PlayerImpl::TieBreakInfo& l,
-               const PlayerImpl::TieBreakInfo& r) {
-  RefTup lhs(l.opp_mwp, l.gwp, l.opp_gwp);
-  RefTup rhs(r.opp_mwp, r.gwp, r.opp_gwp);
-  return lhs < rhs;
-}
 
 
 // MatchImpl -------------------------------------------------------------------
@@ -329,6 +309,51 @@ absl::Status MatchImpl::CommitResult(const MatchResult& result) {
     if (!out.ok()) return out;
   }
   committed_result_ = result;
+  return absl::OkStatus();
+}
+
+
+
+// RoundImpl -------------------------------------------------------------------
+RoundImpl::RoundImpl(const Options& opts)
+  : id_(opts.id), parent_(opts.parent) {}
+
+Round RoundImpl::CreateRound(const Options& opts) {
+  return Round(std::shared_ptr<RoundImpl>(new RoundImpl(opts)));
+}
+
+// Initializes this round, including generating pairings.
+absl::Status RoundImpl::Init() {
+  InitSelfPtr();
+
+  return GeneratePairings();
+}
+
+std::string RoundImpl::ErrorStringId() const {
+  return absl::StrCat("Round ", (id_ & kRoundMask));
+}
+
+absl::Status RoundImpl::CommitMatchResult(Match m) {
+  // TODO: Fill this out.
+  return absl::OkStatus();
+}
+
+absl::Status RoundImpl::JudgeSetResult(Match m) {
+  // TODO: Fill this out.
+  return absl::OkStatus();
+}
+
+absl::Status RoundImpl::GeneratePairings() {
+  /*
+  auto p = parent_.Lock();
+  if (!p.ok()) return p.status();
+
+  Tournament parent = *std::move(p);
+  auto players = parent->ActivePlayers();
+  */
+
+  // TODO: Shuffle the vectors and generate pairings.
+
   return absl::OkStatus();
 }
 

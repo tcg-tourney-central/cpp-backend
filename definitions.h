@@ -9,22 +9,25 @@
 #include <string>
 
 #include "absl/base/thread_annotations.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/synchronization/mutex.h"
 #include "container-class.h"
 #include "fraction.h"
 #include "match-id.h"
+#include "tiebreaker.h"
 #include "util.h"
 
 namespace tcgtc {
 namespace internal {
-class PlayerImpl;
 class MatchImpl;
+class PlayerImpl;
+class RoundImpl;
+class TournamentImpl;
 }  // namespace internal
 
-// Thin wrapper around a shared_ptr, so the Player class is copyable, with a
-// canonical copy shared by e.g. Tournaments, Matches, etc.
+
 class Player : public ContainerClass<internal::PlayerImpl> {
   friend class ::tcgtc::internal::PlayerImpl;
   using PlayerImpl = ::tcgtc::internal::PlayerImpl;
@@ -66,10 +69,6 @@ bool operator==(const MatchResult& l, const MatchResult& r);
 bool operator!=(const MatchResult& l, const MatchResult& r);
 
 
-// Thin wrapper around a shared_ptr, so the Player class is copyable, with a
-// canonical copy shared by e.g. Tournaments, Players, etc.
-//
-// TODO: Generalize this so we can take teams and not just players.
 class Match : public ContainerClass<internal::MatchImpl> {
   friend class ::tcgtc::internal::MatchImpl;
   using MatchImpl = ::tcgtc::internal::MatchImpl;
@@ -81,6 +80,42 @@ class Match : public ContainerClass<internal::MatchImpl> {
   explicit Match(std::shared_ptr<MatchImpl> impl)
     : ContainerClass(std::move(impl)) {}
 };
+
+
+class Round : public ContainerClass<internal::RoundImpl> {
+  friend class ::tcgtc::internal::RoundImpl;
+  using RoundImpl = ::tcgtc::internal::RoundImpl;
+ public:
+  // TODO: Consolidate this with MatchId.round;
+  using Id = uint8_t;
+
+ private:
+  explicit Round(std::shared_ptr<RoundImpl> impl)
+    : ContainerClass(std::move(impl)) {}
+};
+
+
+class Tournament : public ContainerClass<internal::TournamentImpl> {
+  friend class ::tcgtc::internal::TournamentImpl;
+  friend class View;
+  using TournamentImpl = ::tcgtc::internal::TournamentImpl;
+ public:
+  class View : public ImplementationView<TournamentImpl> {
+   public:
+    View() = default;
+    explicit View(std::weak_ptr<TournamentImpl> impl)
+      : ImplementationView<TournamentImpl>(std::move(impl)) {}
+
+    absl::StatusOr<Tournament> Lock();
+  };
+
+  View tournament_view() const { return View(get_weak()); }
+
+ private:
+  explicit Tournament(std::shared_ptr<TournamentImpl> impl)
+    : ContainerClass(std::move(impl)) {}
+};
+
 
 
 namespace internal {
@@ -115,11 +150,6 @@ class PlayerImpl : public MemoryManagedImplementation<PlayerImpl> {
     return Fraction(game_points_, 3 * games_played_).ApplyMtrBound();
   }
 
-  struct TieBreakInfo {
-    Fraction opp_mwp;
-    Fraction gwp;
-    Fraction opp_gwp;
-  };
   TieBreakInfo ComputeBreakers() const ABSL_LOCKS_EXCLUDED(mu_);
 
   // Commit a result, and if there is a previous result for that match, erase
@@ -151,17 +181,11 @@ class PlayerImpl : public MemoryManagedImplementation<PlayerImpl> {
   uint16_t games_played_ ABSL_GUARDED_BY(mu_) = 0;
   uint16_t match_points_ ABSL_GUARDED_BY(mu_) = 0;
 
-  std::map<Player::Id, Player> opponents_ ABSL_GUARDED_BY(mu_);
+  absl::flat_hash_map<Player::Id, Player> opponents_ ABSL_GUARDED_BY(mu_);
   std::map<MatchId, Match> matches_ ABSL_GUARDED_BY(mu_);
 
   // TODO: Add a log of GRVs, warnings, etc.
 };
-bool operator==(const PlayerImpl::TieBreakInfo& l, 
-                const PlayerImpl::TieBreakInfo& r);
-bool operator!=(const PlayerImpl::TieBreakInfo& l,
-                const PlayerImpl::TieBreakInfo& r);
-bool operator<(const PlayerImpl::TieBreakInfo& l,
-               const PlayerImpl::TieBreakInfo& r);
 
 
 
@@ -179,8 +203,6 @@ class MatchImpl : public MemoryManagedImplementation<MatchImpl> {
   absl::StatusOr<Player> opponent(const Player& p) const;
 
   // Only returns a value if both players have reported the same result.
-  //
-  // TODO: Use absl::StatusOr<MatchResult>
   absl::StatusOr<MatchResult> confirmed_result() const;
 
   // Returns false if the reporter or reported result is invalid.
@@ -224,6 +246,44 @@ class MatchImpl : public MemoryManagedImplementation<MatchImpl> {
   std::optional<MatchResult> committed_result_ ABSL_GUARDED_BY(mu_);
 
   // TODO: Add a log of extensions, GRVs, etc.
+};
+
+
+
+class RoundImpl : public MemoryManagedImplementation<RoundImpl> {
+ public:
+  struct Options {
+    Round::Id id;
+    Tournament::View parent;
+  };
+  static Round CreateRound(const Options& opts);
+
+  // Initializes this round, including generating pairings.
+  absl::Status Init();
+
+  std::string ErrorStringId() const;
+
+  absl::Status CommitMatchResult(Match m);
+  absl::Status JudgeSetResult(Match m);
+
+  bool RoundComplete() const {
+    absl::MutexLock l(&mu_);
+    return outstanding_matches_.empty();
+  }
+   
+ private:
+  explicit RoundImpl(const Options& opts);
+  Round this_round() const { return Round(self_copy()); }
+
+  absl::Status GeneratePairings();
+
+  const Round::Id id_;
+  const Tournament::View parent_;
+
+  mutable absl::Mutex mu_;
+
+  absl::flat_hash_map<MatchId, Match> outstanding_matches_ ABSL_GUARDED_BY(mu_);
+  absl::flat_hash_map<MatchId, Match> reported_matches_ ABSL_GUARDED_BY(mu_);
 };
 
 }  // namespace internal

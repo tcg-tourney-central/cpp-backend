@@ -12,8 +12,6 @@
 
 namespace tcgtc {
 namespace internal {
-class RoundImpl;
-}  // namespace internal
 
 // Currently only support the following bracket sizes.
 enum class BracketSize : uint8_t {
@@ -24,19 +22,7 @@ enum class BracketSize : uint8_t {
   kTop8 = 8,
 };
 
-class Round : public ContainerClass<internal::RoundImpl> {
-  friend class ::tcgtc::internal::RoundImpl;
-  using RoundImpl = ::tcgtc::internal::RoundImpl;
- public:
-  // TODO: Consolidate this with MatchId.round;
-  using Id = uint8_t;
-
- private:
-  explicit Round(std::shared_ptr<RoundImpl> impl)
-    : ContainerClass(std::move(impl)) {}
-};
-
-class Tournament : MemoryManagedImplementation<Tournament> {
+class TournamentImpl : MemoryManagedImplementation<Tournament> {
  public:
   struct Options {
     uint8_t swiss_rounds = 0;
@@ -45,7 +31,8 @@ class Tournament : MemoryManagedImplementation<Tournament> {
     // First table number to use for the tournament.
     uint32_t table_one = 1;
   };
-  explicit Tournament(const Options& opts);
+  explicit TournamentImpl(const Options& opts);
+  void Init() { InitSelfPtr(); }
 
   // Interact with this tournament ---------------------------------------------
   //
@@ -80,6 +67,8 @@ class Tournament : MemoryManagedImplementation<Tournament> {
       ABSL_LOCKS_EXCLUDED(mu_);
 
  private:
+  Tournament::View self_view() const { return Tournament::View(self_ref()); }
+
   absl::Status DropPlayerLocked(Player::Id player)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
   absl::Status AddPlayerLocked(const Player::Options& info)
@@ -102,44 +91,6 @@ class Tournament : MemoryManagedImplementation<Tournament> {
   absl::flat_hash_map<Player::Id, Player> dropped_players_ ABSL_GUARDED_BY(mu_);
   absl::flat_hash_map<MatchId, Match> matches_ ABSL_GUARDED_BY(mu_);
   std::map<Round::Id, Round> rounds_ ABSL_GUARDED_BY(mu_);
-};
-
-namespace internal {
-
-class RoundImpl : public MemoryManagedImplementation<RoundImpl> {
- public:
-  struct Options {
-    Round::Id id;
-    Tournament* parent;
-  };
-  static Round CreateRound(const Options& opts);
-
-  // Initializes this round, including generating pairings.
-  absl::Status Init();
-
-  std::string ErrorStringId() const;
-
-  absl::Status CommitMatchResult(Match m);
-  absl::Status JudgeSetResult(Match m);
-
-  bool RoundComplete() const {
-    absl::MutexLock l(&mu_);
-    return outstanding_matches_.empty();
-  }
-   
- private:
-  explicit RoundImpl(const Options& opts);
-  Round this_round() const { return Round(self_copy()); }
-
-  absl::Status GeneratePairings();
-
-  const Round::Id id_;
-  Tournament* const parent_;
-
-  mutable absl::Mutex mu_;
-
-  absl::flat_hash_map<MatchId, Match> outstanding_matches_ ABSL_GUARDED_BY(mu_);
-  absl::flat_hash_map<MatchId, Match> reported_matches_ ABSL_GUARDED_BY(mu_);
 };
 
 }  // namespace internal

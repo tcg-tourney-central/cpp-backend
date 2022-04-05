@@ -10,8 +10,10 @@ cc_library(
   deps = [
     ":fraction",
     ":match-id",
+    ":tiebreaker",
     ":util",
     "@com_google_absl//absl/base",
+    "@com_google_absl//absl/container:flat_hash_map",
     "@com_google_absl//absl/status",
     "@com_google_absl//absl/status:statusor",
     "@com_google_absl//absl/synchronization",
@@ -30,6 +32,15 @@ cc_library(
   hdrs = ["match-id.h"],
   deps = [
     "@com_google_absl//absl/hash",
+  ],
+)
+
+cc_library(
+  name = "tiebreaker",
+  hdrs = ["tiebreaker.h"],
+  srcs = ["tiebreaker.cc"],
+  deps = [
+    ":fraction",
   ],
 )
 

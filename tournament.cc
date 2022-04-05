@@ -1,15 +1,16 @@
 #include "tournament.h"
 
 namespace tcgtc {
+namespace internal {
 
 // Tournament ------------------------------------------------------------------
-Tournament::Tournament(const Options& opts) : opts_(opts) {}
+TournamentImpl::TournamentImpl(const Options& opts) : opts_(opts) {}
 
-absl::StatusOr<Player> Tournament::GetPlayer(Player::Id player) const {
+absl::StatusOr<Player> TournamentImpl::GetPlayer(Player::Id player) const {
   absl::MutexLock l(&mu_);
   return GetPlayerLocked(player);
 }
-absl::StatusOr<Player> Tournament::GetPlayerLocked(Player::Id player) const {
+absl::StatusOr<Player> TournamentImpl::GetPlayerLocked(Player::Id player) const {
   if (auto it = players_.find(player); it != players_.end()) return it->second;
 
   return Err("No Player in this tournament for the reporting player ID (",
@@ -17,46 +18,46 @@ absl::StatusOr<Player> Tournament::GetPlayerLocked(Player::Id player) const {
 
 }
 
-absl::StatusOr<Match> Tournament::GetMatch(MatchId id) const {
+absl::StatusOr<Match> TournamentImpl::GetMatch(MatchId id) const {
   absl::MutexLock l(&mu_);
   return GetMatchLocked(id);
 }
-absl::StatusOr<Match> Tournament::GetMatchLocked(MatchId id) const {
+absl::StatusOr<Match> TournamentImpl::GetMatchLocked(MatchId id) const {
   if (auto it = matches_.find(id); it != matches_.end()) return it->second;
 
   return Err("No Match in this tournament for id ", id.ErrorStringId());
 }
 
-absl::StatusOr<Round> Tournament::CurrentRound() const {
+absl::StatusOr<Round> TournamentImpl::CurrentRound() const {
   absl::MutexLock l(&mu_);
   return CurrentRoundLocked();
 }
 
 // Returns an error status if no rounds have started.
-absl::StatusOr<Round> Tournament::CurrentRoundLocked() const {
+absl::StatusOr<Round> TournamentImpl::CurrentRoundLocked() const {
   if (rounds_.empty()) return Err("Round 1 has not yet started!");
   return rounds_.rbegin()->second;
 }
 
-absl::Status Tournament::AddPlayer(const Player::Options& info) {
+absl::Status TournamentImpl::AddPlayer(const Player::Options& info) {
   absl::MutexLock l(&mu_);
   return AddPlayerLocked(info);
 }
-absl::Status Tournament::AddPlayerLocked(const Player::Options& info) {
+absl::Status TournamentImpl::AddPlayerLocked(const Player::Options& info) {
   // TODO: Fill this in.
   return absl::OkStatus();
 }
 
-absl::Status Tournament::DropPlayer(Player::Id player) {
+absl::Status TournamentImpl::DropPlayer(Player::Id player) {
   absl::MutexLock l(&mu_);
   return DropPlayerLocked(player);
 }
-absl::Status Tournament::DropPlayerLocked(Player::Id player) {
+absl::Status TournamentImpl::DropPlayerLocked(Player::Id player) {
   // TODO: Fill this in.
   return absl::OkStatus();
 }
 
-std::map<uint32_t, std::vector<Player>> Tournament::ActivePlayers() const {
+std::map<uint32_t, std::vector<Player>> TournamentImpl::ActivePlayers() const {
   absl::MutexLock l(&mu_);
   std::map<uint32_t, std::vector<Player>> out;
   for (const auto& [id, p] : active_players_) {
@@ -66,7 +67,7 @@ std::map<uint32_t, std::vector<Player>> Tournament::ActivePlayers() const {
 }
 
 // Returns an error status if the result is for a round that is not current.
-absl::Status Tournament::ReportResult(Player::Id player, 
+absl::Status TournamentImpl::ReportResult(Player::Id player, 
                                       const MatchResult& result) {
   absl::ReleasableMutexLock l(&mu_);
   auto p = GetPlayerLocked(player);
@@ -88,7 +89,7 @@ absl::Status Tournament::ReportResult(Player::Id player,
   return absl::OkStatus();
 }
 
-absl::Status Tournament::JudgeSetResult(const MatchResult& result) {
+absl::Status TournamentImpl::JudgeSetResult(const MatchResult& result) {
   absl::ReleasableMutexLock l(&mu_);
   auto m = GetMatchLocked(result.id);
   if (!m.ok()) return m.status();
@@ -104,7 +105,7 @@ absl::Status Tournament::JudgeSetResult(const MatchResult& result) {
 // For now, require a request to pair the next round, but we can maybe
 // consider doing this automagically when all pairings are received in the
 // previous round.
-absl::StatusOr<Round> Tournament::PairNextRound() {
+absl::StatusOr<Round> TournamentImpl::PairNextRound() {
   absl::ReleasableMutexLock l(&mu_);
 
   // Next round number.
@@ -119,7 +120,7 @@ absl::StatusOr<Round> Tournament::PairNextRound() {
 
   internal::RoundImpl::Options opts;
   opts.id = round_num;
-  opts.parent = this;
+  opts.parent = self_view();
   Round next = internal::RoundImpl::CreateRound(opts);
   rounds_.insert(std::make_pair(round_num, next));
   l.Release();
@@ -127,50 +128,6 @@ absl::StatusOr<Round> Tournament::PairNextRound() {
   if (auto out = next->Init(); !out.ok()) return out;
   return next;
 }
-
-
-
-namespace internal {
-
-
-// RoundImpl -------------------------------------------------------------------
-RoundImpl::RoundImpl(const Options& opts)
-  : id_(opts.id), parent_(opts.parent) {}
-
-Round RoundImpl::CreateRound(const Options& opts) {
-  return Round(std::shared_ptr<RoundImpl>(new RoundImpl(opts)));
-}
-
-// Initializes this round, including generating pairings.
-absl::Status RoundImpl::Init() {
-  InitSelfPtr();
-
-  return GeneratePairings();
-}
-
-std::string RoundImpl::ErrorStringId() const {
-  return absl::StrCat("Round ", (id_ & kRoundMask));
-}
-
-absl::Status RoundImpl::CommitMatchResult(Match m) {
-  // TODO: Fill this out.
-  return absl::OkStatus();
-}
-
-absl::Status RoundImpl::JudgeSetResult(Match m) {
-  // TODO: Fill this out.
-  return absl::OkStatus();
-}
-
-absl::Status RoundImpl::GeneratePairings() {
-  auto players = parent_->ActivePlayers();
-
-  // TODO: Shuffle the vectors and generate pairings.
-
-  return absl::OkStatus();
-}
-
-
 
 }  // namespace internal
 }  // namespace tcgtc

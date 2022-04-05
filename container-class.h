@@ -10,6 +10,20 @@
 namespace tcgtc {
 
 template <typename Impl>
+class ImplementationView {
+ protected:
+  ImplementationView() = default;
+  explicit ImplementationView(std::weak_ptr<Impl> impl)
+    : impl_(std::move(impl)) {}
+
+  // Must be checked for nullness.
+  std::shared_ptr<Impl> lock() const { return impl_.lock(); }
+
+ private:
+  mutable std::weak_ptr<Impl> impl_;
+};
+
+template <typename Impl>
 class ContainerClass {
  public:
   Impl* get() const { return impl_.get(); }
@@ -17,8 +31,9 @@ class ContainerClass {
   Impl& operator*() const { return *get(); }
  protected:
   Impl& me() const { return *get(); }
-  ContainerClass() = delete;
+  std::weak_ptr<Impl> get_weak() const { return impl_; }
 
+  ContainerClass() = delete;
   explicit ContainerClass(std::shared_ptr<Impl> impl) : impl_(std::move(impl)) {
     assert(impl != nullptr);
   }
