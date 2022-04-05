@@ -160,8 +160,9 @@ PlayerImpl::TieBreakInfo PlayerImpl::ComputeBreakers() const {
 
     // Have an opponent iff. this match isn't a bye, so include it in tie-break.
     if (auto opp = m->opponent(me); opp.ok()) {
-      omwp_sum += (*opp)->mwp().ApplyMtrBound();
-      ogwp_sum += (*opp)->gwp().ApplyMtrBound();
+      // mwp() and gwp() already apply the MTR Bound of 1/3 (33.3%) minimum.
+      omwp_sum += (*opp)->mwp();
+      ogwp_sum += (*opp)->gwp();
       ++num_opps;
     }
   }

@@ -117,8 +117,12 @@ class PlayerImpl : public std::enable_shared_from_this<PlayerImpl> {
   bool has_played_opp(const Player& p) const;
 
   uint16_t match_points() const { return match_points_; }
-  Fraction mwp() const { return Fraction(match_points_, 3 * matches_played()); }
-  Fraction gwp() const { return Fraction(game_points_, 3 * games_played_); }
+  Fraction mwp() const { 
+    return Fraction(match_points_, 3 * matches_played()).ApplyMtrBound();
+  }
+  Fraction gwp() const { 
+    return Fraction(game_points_, 3 * games_played_).ApplyMtrBound();
+  }
 
   struct TieBreakInfo {
     Fraction opp_mwp;

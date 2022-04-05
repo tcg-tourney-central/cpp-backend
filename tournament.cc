@@ -9,7 +9,6 @@ absl::StatusOr<Player> Tournament::GetPlayer(Player::Id player) const {
   absl::MutexLock l(&mu_);
   return GetPlayerLocked(player);
 }
-
 absl::StatusOr<Player> Tournament::GetPlayerLocked(Player::Id player) const {
   if (auto it = players_.find(player); it != players_.end()) return it->second;
 
@@ -22,7 +21,6 @@ absl::StatusOr<Match> Tournament::GetMatch(MatchId id) const {
   absl::MutexLock l(&mu_);
   return GetMatchLocked(id);
 }
-
 absl::StatusOr<Match> Tournament::GetMatchLocked(MatchId id) const {
   if (auto it = matches_.find(id); it != matches_.end()) return it->second;
 
@@ -56,6 +54,15 @@ absl::Status Tournament::DropPlayer(Player::Id player) {
 absl::Status Tournament::DropPlayerLocked(Player::Id player) {
   // TODO: Fill this in.
   return absl::OkStatus();
+}
+
+std::map<uint32_t, std::vector<Player>> Tournament::ActivePlayers() const {
+  absl::MutexLock l(&mu_);
+  std::map<uint32_t, std::vector<Player>> out;
+  for (const auto& [id, p] : active_players_) {
+    out[p->match_points()].push_back(p);
+  }
+  return out;
 }
 
 // Returns an error status if the result is for a round that is not current.
@@ -156,7 +163,10 @@ absl::Status RoundImpl::JudgeSetResult(Match m) {
 }
 
 absl::Status RoundImpl::GeneratePairings() {
-  // TODO: Fill this out.
+  auto players = parent_->ActivePlayers();
+
+  // TODO: Shuffle the vectors and generate pairings.
+
   return absl::OkStatus();
 }
 

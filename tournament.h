@@ -80,13 +80,13 @@ class Tournament {
   absl::StatusOr<Round> CurrentRound() const  // Error if tournament unstarted.
       ABSL_LOCKS_EXCLUDED(mu_);
 
-  /*
   // Active (pairable) players, by match points.
   std::map<uint32_t, std::vector<Player>> ActivePlayers() const
       ABSL_LOCKS_EXCLUDED(mu_);
-  */
 
  private:
+  absl::Status DropPlayerLocked(Player::Id player)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
   absl::Status AddPlayerLocked(const Player::Options& info)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
   absl::StatusOr<Player> GetPlayerLocked(Player::Id player) const
