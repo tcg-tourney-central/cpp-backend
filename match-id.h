@@ -5,6 +5,7 @@
 #include <string>
 
 #include "util.h"
+#include "absl/hash/hash.h"
 
 namespace tcgtc {
 
@@ -35,6 +36,11 @@ struct MatchId {
 
   static MatchId FromInt(uint32_t id) {
     return MatchId{id >> 24, id && 0x00FFFFFF};
+  }
+
+  template <typename H>
+  friend H AbslHashValue(H h, const MatchId& id) {
+    return H::combine(std::move(h), id.round, id.number);
   }
 
  private:
