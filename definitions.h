@@ -96,8 +96,7 @@ namespace internal {
 // IMPLEMENTATION --------------------------------------------------------------
 
 
-// TODO: Add synchronization, this will be important for performant
-// match-reporting, so we don't hammer a "global" (per-tournament) Mutex.
+
 class PlayerImpl : public std::enable_shared_from_this<PlayerImpl> {
  public:
   // Cannot be called during the constructor as `weak_from_this()` is not
@@ -176,8 +175,7 @@ bool operator<(const PlayerImpl::TieBreakInfo& l,
                const PlayerImpl::TieBreakInfo& r);
 
 
-// TODO: Add synchronization, this will be important for performant
-// match-reporting, so we don't hammer a "global" (per-tournament) Mutex.
+
 class MatchImpl : public std::enable_shared_from_this<MatchImpl> {
  public:
   // Cannot be called during the constructor as `weak_from_this()` is not

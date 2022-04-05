@@ -49,6 +49,15 @@ absl::Status Tournament::AddPlayerLocked(const Player::Options& info) {
   return absl::OkStatus();
 }
 
+absl::Status Tournament::DropPlayer(Player::Id player) {
+  absl::MutexLock l(&mu_);
+  return DropPlayerLocked(player);
+}
+absl::Status Tournament::DropPlayerLocked(Player::Id player) {
+  // TODO: Fill this in.
+  return absl::OkStatus();
+}
+
 // Returns an error status if the result is for a round that is not current.
 absl::Status Tournament::ReportResult(Player::Id player, 
                                       const MatchResult& result) {

@@ -59,6 +59,7 @@ class Tournament {
   // mechanism. We will hand out tokens for these requests, and if they confirm
   // (for that token) we will commit it later.
   absl::Status AddPlayer(const Player::Options& info);
+  absl::Status DropPlayer(Player::Id player);
 
   // Returns an error status if the result is for a round that is not current.
   absl::Status ReportResult(Player::Id player, const MatchResult& result);
