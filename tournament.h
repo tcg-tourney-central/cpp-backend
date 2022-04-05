@@ -22,7 +22,7 @@ enum class BracketSize : uint8_t {
   kTop8 = 8,
 };
 
-class TournamentImpl : MemoryManagedImplementation<Tournament> {
+class TournamentImpl : MemoryManagedImplementation<TournamentImpl> {
  public:
   struct Options {
     uint8_t swiss_rounds = 0;

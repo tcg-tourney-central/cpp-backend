@@ -80,7 +80,10 @@ Match Match::CreatePairing(Player a, Player b, MatchId id) {
   return m;
 }
 
-
+absl::StatusOr<Tournament> Tournament::View::Lock() {
+  if (auto ptr = lock(); ptr != nullptr) return Tournament(ptr);
+  return Err("Viewed Tournament has been torn down.");
+}
 
 
 namespace internal {
