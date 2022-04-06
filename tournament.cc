@@ -1,5 +1,10 @@
 #include "tournament.h"
 
+// TODO: Create a single header for these.
+#include "match.h"
+#include "player.h"
+#include "round.h"
+
 namespace tcgtc {
 namespace internal {
 

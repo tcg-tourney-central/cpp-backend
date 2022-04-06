@@ -1,11 +1,11 @@
 // Defines a CRTP for a copyable container class for an implementation class.
 
+#ifndef _TCGTC_CONTAINER_CLASS_H_
+#define _TCGTC_CONTAINER_CLASS_H_
+
 #include <cassert>
 #include <memory>
 #include <utility>
-
-#ifndef _TCGTC_CONTAINER_CLASS_H_
-#define _TCGTC_CONTAINER_CLASS_H_
 
 namespace tcgtc {
 

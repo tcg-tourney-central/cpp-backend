@@ -1,0 +1,94 @@
+#ifndef _TCGTC_PLAYER_H_
+#define _TCGTC_PLAYER_H_
+
+#include <cstdint>
+#include <map>
+#include <memory>
+#include <optional>
+#include <vector>
+#include <string>
+
+#include "absl/base/thread_annotations.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/synchronization/mutex.h"
+#include "container-class.h"
+#include "definitions.h"
+#include "fraction.h"
+#include "match-id.h"
+#include "match-result.h"
+#include "tiebreaker.h"
+#include "util.h"
+
+namespace tcgtc {
+namespace internal {
+
+class PlayerImpl : public MemoryManagedImplementation<PlayerImpl> {
+ public:
+  // Cannot be called during the constructor as `weak_from_this()` is not
+  // available, so we called it immediately after.
+  void Init() { InitSelfPtr(); } 
+
+  // TODO: Probably determined by the player's persistent stored ID, but can be
+  // per-tournament.
+  Player::Id id() const { return id_; }
+  const std::string& last_name() const { return last_name_; }
+  const std::string& first_name() const { return first_name_; }
+  const std::string& username() const { return username_; }
+
+  std::string ErrorStringId() const {
+    return absl::StrCat("Player (", display_name_, ")");
+  }
+
+  bool has_played_opp(const Player& p) const;
+
+  uint16_t match_points() const { return match_points_; }
+  Fraction mwp() const { 
+    return Fraction(match_points_, 3 * matches_played()).ApplyMtrBound();
+  }
+  Fraction gwp() const { 
+    return Fraction(game_points_, 3 * games_played_).ApplyMtrBound();
+  }
+
+  TieBreakInfo ComputeBreakers() const ABSL_LOCKS_EXCLUDED(mu_);
+
+  // Commit a result, and if there is a previous result for that match, erase
+  // that from the cache.
+  absl::Status CommitResult(const MatchResult& result,
+                            const std::optional<MatchResult>& prev)
+    ABSL_LOCKS_EXCLUDED(mu_);
+
+  absl::Status AddMatch(Match m) ABSL_LOCKS_EXCLUDED(mu_);
+
+ private:
+  // We want these implementations created only by the container classes.
+  friend class Player;
+  explicit PlayerImpl(const Player::Options& opts);
+  Player this_player() const { return Player(self_copy()); }
+
+  uint16_t matches_played() const { return matches_.size(); }
+
+  const Player::Id id_;
+  const std::string last_name_;
+  const std::string first_name_;
+  const std::string username_;  // e.g. for online tournaments.
+  const std::string display_name_;  // Used for Match Slips, standings, etc.
+
+  mutable absl::Mutex mu_;
+
+  // Local cache of results. Modified by the matches when a result is committed.
+  uint16_t game_points_ ABSL_GUARDED_BY(mu_)= 0;
+  uint16_t games_played_ ABSL_GUARDED_BY(mu_) = 0;
+  uint16_t match_points_ ABSL_GUARDED_BY(mu_) = 0;
+
+  absl::flat_hash_map<Player::Id, Player> opponents_ ABSL_GUARDED_BY(mu_);
+  std::map<MatchId, Match> matches_ ABSL_GUARDED_BY(mu_);
+
+  // TODO: Add a log of GRVs, warnings, etc.
+};
+
+}  // namespace internal
+}  // namespace tcgtc
+
+#endif // _TCGTC_PLAYER_H_

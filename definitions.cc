@@ -1,5 +1,10 @@
 #include "definitions.h"
 
+#include "match.h"
+#include "match-id.h"
+#include "match-result.h"
+#include "player.h"
+#include "round.h"
 #include "util.h"
 
 namespace tcgtc {
@@ -32,37 +37,6 @@ bool operator<(const Player& l, const Player& r) {
 
 
 
-// MatchResult -----------------------------------------------------------------
-bool operator==(const MatchResult& l, const MatchResult& r) {
-  return l.id == r.id &&
-         l.winner == r.winner &&
-         l.winner_games_won == r.winner_games_won &&
-         l.winner_games_lost == r.winner_games_lost &&
-         l.games_drawn == r.games_drawn;
-}
-
-bool operator!=(const MatchResult& l, const MatchResult& r) {
-  return !(l == r);
-}
-
-uint16_t MatchResult::match_points(const Player& p) const {
-  if (!winner.has_value()) return 1;
-  return p == *winner ? 3 : 0;
-}
-
-uint16_t MatchResult::game_points(const Player& p) const {
-  if (!winner.has_value() || p == *winner) {
-    return 3 * winner_games_won + games_drawn;
-  }
-  return 3 * winner_games_lost + games_drawn;
-}
-
-uint16_t MatchResult::games_played() const {
-  return winner_games_won + winner_games_lost + games_drawn;
-}
-
-
-
 // Match -----------------------------------------------------------------------
 Match Match::CreateBye(Player p, MatchId id) {
   Match m(std::shared_ptr<MatchImpl>(new MatchImpl(p, std::nullopt, id)));
@@ -70,7 +44,7 @@ Match Match::CreateBye(Player p, MatchId id) {
 
   // Immediately commit the result of the bye back to the player's cache.
   // MTR states that a Bye is considered won 2-0 in games.
-  m->CommitResult(MatchResult{id, p, 2});
+  m->CommitResult(MatchResult{id, p->id(), 2});
   return m;
 }
 
@@ -116,16 +90,15 @@ absl::Status PlayerImpl::CommitResult(const MatchResult& result,
                result.id.ErrorStringId());
   }
 
-  auto myself = this_player();
   games_played_ += result.games_played();
-  game_points_ += result.game_points(myself);
-  match_points_ += result.match_points(myself);
+  game_points_ += result.game_points(id_);
+  match_points_ += result.match_points(id_);
 
   // Remove any previously committed result values for this match.
   if (prev.has_value()) {
     games_played_ -= prev->games_played();
-    game_points_ -= prev->game_points(myself);
-    match_points_ -= prev->match_points(myself);
+    game_points_ -= prev->game_points(id_);
+    match_points_ -= prev->match_points(id_);
   }
   return absl::OkStatus();
 }
@@ -226,6 +199,14 @@ absl::StatusOr<MatchResult> MatchImpl::confirmed_result() const {
   return *a_result_;
 }
 
+// TODO: Consolidate these two.
+bool MatchImpl::has_player(const Player& p) const {
+  return a_ == p || (b_.has_value() && *b_ == p);
+}
+bool MatchImpl::has_player(Player::Id p) const {
+  return a_->id() == p || (b_.has_value() && (*b_)->id() == p);
+}
+
 absl::StatusOr<Player> MatchImpl::opponent(const Player& p) const {
   if (!has_player(p)) {
     return Err(p->ErrorStringId(), " is not in this match.");
@@ -292,13 +273,15 @@ absl::Status MatchImpl::CheckResultValidity(const MatchResult& result) const {
   // Check win validity.
   auto& winner = *result.winner;
   if (!has_player(winner)) {
-    return Err(id_.ErrorStringId(), " report has winner ", 
-               winner->ErrorStringId(), " not in this match.");
+    return Err(id_.ErrorStringId(), " report has winner ",
+               // TODO: This generic int string is not very useful.
+               winner, " not in this match.");
   }
   if (result.winner_games_won <= result.winner_games_lost) {
     // Match has a winner, but the match result doesn't align with that.
-    return Err(id_.ErrorStringId(), " report has a winner ",
-               winner->ErrorStringId(),
+    //
+    // TODO: This generic int string is not very useful.
+    return Err(id_.ErrorStringId(), " report has a winner ", winner,
                " but reported games score is invalid for a won match.");
   }
   return absl::OkStatus();

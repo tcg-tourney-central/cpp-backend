@@ -4,12 +4,25 @@ load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
 # Libraries -- KEEP ALPHABETIZED
 
 cc_library(
+  name = "container-class",
+  hdrs = ["container-class.h"],
+  copts = ["/std:c++17"],
+)
+
+cc_library(
   name = "definitions",
-  hdrs = ["definitions.h", "container-class.h"],
+  hdrs = [
+    "definitions.h",
+    "match.h",
+    "player.h",
+    "round.h",
+  ],
   srcs = ["definitions.cc"],
   deps = [
+    ":container-class",
     ":fraction",
     ":match-id",
+    ":match-result",
     ":tiebreaker",
     ":util",
     "@com_google_absl//absl/base",
@@ -25,6 +38,7 @@ cc_library(
   name = "fraction",
   hdrs = ["fraction.h"],
   srcs = ["fraction.cc"],
+  copts = ["/std:c++17"],
 )
 
 cc_library(
@@ -32,7 +46,21 @@ cc_library(
   hdrs = ["match-id.h"],
   deps = [
     "@com_google_absl//absl/hash",
+    "@com_google_absl//absl/strings",
   ],
+  copts = ["/std:c++17"],
+)
+
+cc_library(
+  name = "match-result",
+  hdrs = ["match-result.h"],
+  srcs = ["match-result.cc"],
+  deps = [
+    ":match-id",
+    ":util",
+    "@com_google_absl//absl/strings",
+  ],
+  copts = ["/std:c++17"],
 )
 
 cc_library(
@@ -42,6 +70,7 @@ cc_library(
   deps = [
     ":fraction",
   ],
+  copts = ["/std:c++17"],
 )
 
 cc_library(
@@ -68,5 +97,6 @@ cc_library(
     "@com_google_absl//absl/status",
     "@com_google_absl//absl/strings",
   ],
+  copts = ["/std:c++17"],
 )
 
