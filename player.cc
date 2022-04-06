@@ -6,9 +6,6 @@
 #include "util.h"
 
 namespace tcgtc {
-
-uint64_t Player::id() const { return me().id(); }
-
 namespace internal {
 namespace {
 std::string ComputeDisplayName(const PlayerImpl::Options& opts) {
@@ -67,14 +64,14 @@ absl::Status PlayerImpl::AddMatch(Match m) {
   if (!m->is_bye()) {
     auto opp = m->opponent(me);
     if (!opp.ok()) return opp.status();
-    opponents_.insert(std::make_pair(opp->id(), *opp));
+    opponents_.insert(std::make_pair((*opp)->id(), *opp));
   }
   return absl::OkStatus();
 }
 
 bool PlayerImpl::has_played_opp(const Player& p) const {
   absl::MutexLock l(&mu_);
-  return opponents_.find(p.id()) != opponents_.end();
+  return opponents_.find(p->id()) != opponents_.end();
 }
 
 TieBreakInfo PlayerImpl::ComputeBreakers() const {
@@ -116,7 +113,7 @@ TieBreakInfo PlayerImpl::ComputeBreakers() const {
 }
 
 bool operator==(const Player& l, const Player& r) {
-  if (l.id() != r.id()) return false;
+  if (l->id() != r->id()) return false;
 
   // TODO: Add an invariant check that `l.player_ == r.player_`
   return true;

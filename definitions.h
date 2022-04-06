@@ -22,8 +22,6 @@ class Player : public ContainerClass<internal::PlayerImpl> {
   using Impl = ::tcgtc::internal::PlayerImpl;
   using Id = uint64_t;
 
-  Id id() const;
-
  private:
   explicit Player(std::shared_ptr<Impl> impl)
     : ContainerClass(std::move(impl)) {}

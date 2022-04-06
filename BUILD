@@ -14,8 +14,7 @@ cc_library(
   hdrs = ["definitions.h"],
   deps = [
     ":container-class",
-    ":util",
-    "@com_google_absl//absl/base",
+    "@com_google_absl//absl/status",
     "@com_google_absl//absl/status:statusor",
   ],
   copts = ["/std:c++17"],
