@@ -44,11 +44,12 @@ absl::StatusOr<Round> TournamentImpl::CurrentRoundLocked() const {
   return rounds_.rbegin()->second;
 }
 
-absl::Status TournamentImpl::AddPlayer(const Player::Options& info) {
+absl::Status TournamentImpl::AddPlayer(const Player::Impl::Options& info) {
   absl::MutexLock l(&mu_);
   return AddPlayerLocked(info);
 }
-absl::Status TournamentImpl::AddPlayerLocked(const Player::Options& info) {
+absl::Status
+TournamentImpl::AddPlayerLocked(const Player::Impl::Options& info) {
   // TODO: Fill this in.
   return absl::OkStatus();
 }

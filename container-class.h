@@ -11,8 +11,9 @@ namespace tcgtc {
 
 template <typename Impl>
 class ImplementationView {
- protected:
+ public:
   ImplementationView() = default;
+ protected:
   explicit ImplementationView(std::weak_ptr<Impl> impl)
     : impl_(std::move(impl)) {}
 

@@ -24,9 +24,8 @@ namespace internal {
 
 class MatchImpl : public MemoryManagedImplementation<MatchImpl> {
  public:
-  // Cannot be called during the constructor as `weak_from_this()` is not
-  // available, so we called it immediately after.
-  void Init();
+  static Match CreateBye(Player p, MatchId id);
+  static Match CreatePairing(Player a, Player b, MatchId id);
 
   bool is_bye() const { return !b_.has_value(); }
   MatchId id() const { return id_; }
@@ -48,9 +47,11 @@ class MatchImpl : public MemoryManagedImplementation<MatchImpl> {
   absl::Status JudgeSetResult(MatchResult result);
 
  private:
-  // We want these implementations created only by the container classes.
-  friend class Match;
   MatchImpl(Player a, std::optional<Player> b, MatchId id);
+
+  // Init() and this_match() can only be called after the constructor. See
+  // documentation on std::enable_shared_from_this.
+  void Init();
   Match this_match() const { return Match(self_copy()); }
 
   // Commits the result back to the Player(s), updating their matches/games

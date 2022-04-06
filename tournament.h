@@ -44,7 +44,7 @@ class TournamentImpl : MemoryManagedImplementation<TournamentImpl> {
   // result after it has been confirmed by the players, add a "pending/verify"
   // mechanism. We will hand out tokens for these requests, and if they confirm
   // (for that token) we will commit it later.
-  absl::Status AddPlayer(const Player::Options& info);
+  absl::Status AddPlayer(const Player::Impl::Options& info);
   absl::Status DropPlayer(Player::Id player);
 
   // Returns an error status if the result is for a round that is not current.
@@ -71,11 +71,13 @@ class TournamentImpl : MemoryManagedImplementation<TournamentImpl> {
       ABSL_LOCKS_EXCLUDED(mu_);
 
  private:
-  Tournament::View self_view() const { return Tournament::View(self_ref()); }
+  Tournament::View self_view() const { 
+    return Tournament::CreateView(self_ref());
+  }
 
   absl::Status DropPlayerLocked(Player::Id player)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
-  absl::Status AddPlayerLocked(const Player::Options& info)
+  absl::Status AddPlayerLocked(const Player::Impl::Options& info)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
   absl::StatusOr<Player> GetPlayerLocked(Player::Id player) const
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);

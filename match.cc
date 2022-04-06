@@ -8,6 +8,22 @@
 namespace tcgtc {
 namespace internal {
 
+Match MatchImpl::CreateBye(Player p, MatchId id) {
+  Match m(std::shared_ptr<MatchImpl>(new MatchImpl(p, std::nullopt, id)));
+  m->Init();
+
+  // Immediately commit the result of the bye back to the player's cache.
+  // MTR states that a Bye is considered won 2-0 in games.
+  m->CommitResult(MatchResult{id, p->id(), 2});
+  return m;
+}
+
+Match MatchImpl::CreatePairing(Player a, Player b, MatchId id) {
+  Match m(std::shared_ptr<MatchImpl>(new MatchImpl(a, b, id)));
+  m->Init();
+  return m;
+}
+
 MatchImpl::MatchImpl(Player a, std::optional<Player> b, MatchId id)
   : id_(id), a_(a), b_(b) {}
 

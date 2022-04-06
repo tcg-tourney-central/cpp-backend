@@ -12,7 +12,7 @@ cc_library(
 cc_library(
   name = "definitions",
   hdrs = ["definitions.h", "match.h", "player.h"],
-  srcs = ["definitions.cc", "match.cc", "player.cc"],
+  srcs = ["match.cc", "player.cc"],
   deps = [
     ":container-class",
     ":fraction",

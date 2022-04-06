@@ -6,9 +6,12 @@
 #include "util.h"
 
 namespace tcgtc {
+
+uint64_t Player::id() const { return me().id(); }
+
 namespace internal {
 namespace {
-std::string ComputeDisplayName(const Player::Options& opts) {
+std::string ComputeDisplayName(const PlayerImpl::Options& opts) {
   if (opts.last_name.empty() || opts.first_name.empty()) {
     assert(!opts.username.empty());
     return opts.username;
@@ -17,11 +20,15 @@ std::string ComputeDisplayName(const Player::Options& opts) {
 }
 }  // namespace
 
-
-// PlayerImpl ------------------------------------------------------------------
-PlayerImpl::PlayerImpl(const Player::Options& opts)
+PlayerImpl::PlayerImpl(const Options& opts)
   : id_(opts.id), last_name_(opts.last_name), first_name_(opts.first_name),
     username_(opts.username), display_name_(ComputeDisplayName(opts)) {}
+
+Player PlayerImpl::CreatePlayer(Options opts) { 
+  Player p(std::shared_ptr<PlayerImpl>(new PlayerImpl(opts)));
+  p->Init();
+  return p;
+}
 
 absl::Status PlayerImpl::CommitResult(const MatchResult& result,
                               const std::optional<MatchResult>& prev) {
@@ -106,6 +113,23 @@ TieBreakInfo PlayerImpl::ComputeBreakers() const {
     out.opp_gwp = ogwp_sum / divisor;
   }
   return out;
+}
+
+bool operator==(const Player& l, const Player& r) {
+  if (l.id() != r.id()) return false;
+
+  // TODO: Add an invariant check that `l.player_ == r.player_`
+  return true;
+}
+
+bool operator<(const Player& l, const Player& r) {
+  // Skip the OMWP computations when possible.
+  uint16_t lhsmp = l->match_points();
+  uint16_t rhsmp = r->match_points();
+  if (lhsmp != rhsmp) return lhsmp < rhsmp;
+
+  // Tie-break within equal match points.
+  return l->ComputeBreakers() < r->ComputeBreakers();
 }
 
 }  // namespace internal

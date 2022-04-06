@@ -26,9 +26,14 @@ namespace internal {
 
 class PlayerImpl : public MemoryManagedImplementation<PlayerImpl> {
  public:
-  // Cannot be called during the constructor as `weak_from_this()` is not
-  // available, so we called it immediately after.
-  void Init() { InitSelfPtr(); } 
+
+  struct Options {
+    Player::Id id;
+    std::string first_name;
+    std::string last_name;
+    std::string username;
+  };
+  static Player CreatePlayer(Options opts);
 
   // TODO: Probably determined by the player's persistent stored ID, but can be
   // per-tournament.
@@ -62,9 +67,11 @@ class PlayerImpl : public MemoryManagedImplementation<PlayerImpl> {
   absl::Status AddMatch(Match m) ABSL_LOCKS_EXCLUDED(mu_);
 
  private:
-  // We want these implementations created only by the container classes.
-  friend class Player;
-  explicit PlayerImpl(const Player::Options& opts);
+  explicit PlayerImpl(const Options& opts);
+
+  // Init() and this_player() can only be called after the constructor. See
+  // documentation on std::enable_shared_from_this.
+  void Init() { InitSelfPtr(); } 
   Player this_player() const { return Player(self_copy()); }
 
   uint16_t matches_played() const { return matches_.size(); }
@@ -87,6 +94,9 @@ class PlayerImpl : public MemoryManagedImplementation<PlayerImpl> {
 
   // TODO: Add a log of GRVs, warnings, etc.
 };
+
+bool operator==(const Player& l, const Player& r);
+bool operator<(const Player& l, const Player& r);
 
 }  // namespace internal
 }  // namespace tcgtc
