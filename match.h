@@ -17,10 +17,10 @@
 #include "definitions.h"
 #include "fraction.h"
 #include "match-id.h"
+#include "match-result.h"
 
 namespace tcgtc {
 namespace internal {
-
 
 class MatchImpl : public MemoryManagedImplementation<MatchImpl> {
  public:
@@ -81,7 +81,6 @@ class MatchImpl : public MemoryManagedImplementation<MatchImpl> {
 
   // TODO: Add a log of extensions, GRVs, etc.
 };
-
 
 }  // namespace internal
 }  // namespace tcgtc

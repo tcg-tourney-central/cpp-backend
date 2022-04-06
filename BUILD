@@ -11,13 +11,8 @@ cc_library(
 
 cc_library(
   name = "definitions",
-  hdrs = [
-    "definitions.h",
-    "match.h",
-    "player.h",
-    "round.h",
-  ],
-  srcs = ["definitions.cc"],
+  hdrs = ["definitions.h", "match.h", "player.h"],
+  srcs = ["definitions.cc", "match.cc", "player.cc"],
   deps = [
     ":container-class",
     ":fraction",
@@ -75,11 +70,11 @@ cc_library(
 
 cc_library(
   name = "tournament",
-  hdrs = ["tournament.h"],
-  srcs = ["tournament.cc"],
+  hdrs = ["round.h", "tournament.h"],
+  srcs = ["round.cc", "tournament.cc"],
   deps = [
-    ":definitions",
     ":match-id",
+    ":definitions",
     ":util",
     "@com_google_absl//absl/base",
     "@com_google_absl//absl/container:flat_hash_map",
