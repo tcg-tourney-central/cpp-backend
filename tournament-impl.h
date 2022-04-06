@@ -7,10 +7,9 @@
 #include "absl/status/statusor.h"
 #include "absl/synchronization/mutex.h"
 #include "definitions.h"
-#include "match.h"
 #include "match-id.h"
 #include "match-result.h"
-#include "player.h"
+#include "player-match.h"
 #include "round.h"
 #include "util.h"
 

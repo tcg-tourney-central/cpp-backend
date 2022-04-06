@@ -51,8 +51,13 @@ cc_library(
 
 cc_library(
   name = "player-match",
-  hdrs = ["match.h", "player.h"],
-  srcs = ["match.cc", "player.cc"],
+  hdrs = ["player-match.h"],
+  srcs = [
+    "match.h", 
+    "match.cc",
+    "player.h",
+    "player.cc"
+  ],
   deps = [
     ":container-class",
     ":definitions",
@@ -82,7 +87,7 @@ cc_library(
 
 cc_library(
   name = "tournament",
-  hdrs = ["round.h", "tournament.h"],
+  hdrs = ["round.h", "tournament-impl.h"],
   srcs = ["round.cc", "tournament.cc"],
   deps = [
     ":definitions",
