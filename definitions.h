@@ -4,9 +4,9 @@
 #include <cstdint>
 #include <memory>
 
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "container-class.h"
-#include "util.h"
 
 namespace tcgtc {
 namespace internal {
@@ -65,7 +65,7 @@ class Tournament : public ContainerClass<internal::TournamentImpl> {
     View() = default;
     absl::StatusOr<Tournament> Lock() const {
       if (auto ptr = lock(); ptr != nullptr) return Tournament(ptr);
-      return Err("Viewed Tournament has been torn down.");
+      return absl::FailedPreconditionError("Viewed Tournament destroyed.");
     }
    private:
     explicit View(std::weak_ptr<Impl> impl)

@@ -11,20 +11,12 @@ cc_library(
 
 cc_library(
   name = "definitions",
-  hdrs = ["definitions.h", "match.h", "player.h"],
-  srcs = ["match.cc", "player.cc"],
+  hdrs = ["definitions.h"],
   deps = [
     ":container-class",
-    ":fraction",
-    ":match-id",
-    ":match-result",
-    ":tiebreaker",
     ":util",
     "@com_google_absl//absl/base",
-    "@com_google_absl//absl/container:flat_hash_map",
-    "@com_google_absl//absl/status",
     "@com_google_absl//absl/status:statusor",
-    "@com_google_absl//absl/synchronization",
   ],
   copts = ["/std:c++17"],
 )
@@ -59,6 +51,27 @@ cc_library(
 )
 
 cc_library(
+  name = "player-match",
+  hdrs = ["match.h", "player.h"],
+  srcs = ["match.cc", "player.cc"],
+  deps = [
+    ":container-class",
+    ":definitions",
+    ":fraction",
+    ":match-id",
+    ":match-result",
+    ":tiebreaker",
+    ":util",
+    "@com_google_absl//absl/base",
+    "@com_google_absl//absl/container:flat_hash_map",
+    "@com_google_absl//absl/status",
+    "@com_google_absl//absl/status:statusor",
+    "@com_google_absl//absl/synchronization",
+  ],
+  copts = ["/std:c++17"],
+)
+
+cc_library(
   name = "tiebreaker",
   hdrs = ["tiebreaker.h"],
   srcs = ["tiebreaker.cc"],
@@ -73,8 +86,9 @@ cc_library(
   hdrs = ["round.h", "tournament.h"],
   srcs = ["round.cc", "tournament.cc"],
   deps = [
-    ":match-id",
     ":definitions",
+    ":match-id",
+    ":player-match",
     ":util",
     "@com_google_absl//absl/base",
     "@com_google_absl//absl/container:flat_hash_map",
