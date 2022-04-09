@@ -28,7 +28,9 @@ struct MatchId {
   // matches in a single round. Seems fine.
   uint32_t number : 24;
 
-  bool bracket_match() const { return (kBracketBit & round) != 0; }
+  static bool IsBracket(RoundId r) { return (kBracketBit & r) != 0; }
+  static bool IsSwiss(RoundId r) { return !IsBracket(r); }
+  bool bracket_match() const { return IsBracket(round); }
   std::string ErrorStringId() const {
     return absl::StrCat("Match (", readable_id(), ")");
   }

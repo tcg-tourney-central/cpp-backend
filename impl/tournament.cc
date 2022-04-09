@@ -5,9 +5,19 @@
 
 namespace tcgtc {
 namespace internal {
+namespace {
+// Use a hardware seeder to seed a per-tournament random number generator.
+std::random_device& seeder() {
+  static std::random_device* seeder = []() {
+    return new std::random_device();
+  }();
+  return *seeder;
+}
+}  // namespace
 
 // Tournament ------------------------------------------------------------------
-TournamentImpl::TournamentImpl(const Options& opts) : opts_(opts) {}
+TournamentImpl::TournamentImpl(const Options& opts)
+  : opts_(opts), rand_(seeder()()) {}
 
 absl::StatusOr<Player> TournamentImpl::GetPlayer(Player::Id player) const {
   absl::MutexLock l(&mu_);

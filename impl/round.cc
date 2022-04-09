@@ -1,5 +1,8 @@
 #include "impl/round.h"
 
+#include <algorithm>
+
+#include "absl/container/flat_hash_set.h"
 #include "match-id.h"
 #include "match-result.h"
 #include "player-match.h"
@@ -20,7 +23,10 @@ Round RoundImpl::CreateRound(const Options& opts) {
 absl::Status RoundImpl::Init() {
   InitSelfPtr();
 
-  return GeneratePairings();
+  if (MatchId::IsSwiss(id_)) return GenerateSwissPairings();
+
+  // TODO: Provide the ability to pair brackets correctly.
+  return absl::OkStatus();
 }
 
 std::string RoundImpl::ErrorStringId() const {
@@ -37,14 +43,169 @@ absl::Status RoundImpl::JudgeSetResult(Match m) {
   return absl::OkStatus();
 }
 
-absl::Status RoundImpl::GeneratePairings() {
+
+namespace {
+struct PerMatchPointPairing {
+  PerMatchPointPairing() = default;
+  PerMatchPointPairing(std::vector<Player> pairs, std::vector<Player> leftovers) {
+    assert((pairs.size() & 1) == 0);
+    pairings.reserve(pairs.size() >> 1);
+    for (int idx = 0; idx + 1 < pairs.size(); idx += 2) {
+      auto& left = pairs[idx];
+      auto& right = pairs[idx+1];
+      pairings.push_back(std::make_pair(std::move(left), std::move(right)));
+    }
+    remainders = std::move(leftovers);
+  }
+  std::vector<std::pair<Player, Player>> pairings;
+  std::vector<Player> remainders;
+};
+
+bool Valid(const Player& l, const Player& r) {
+  return !l->has_played_opp(r);
+}
+
+// Attempts to find an opponent in the "unpaired" portion of the vector for the
+// current invalid pairing.
+bool AttemptForwardRepair(std::vector<Player>& players, int idx) {
+  auto& left = players[idx];
+  auto& right = players[idx+1];
+  for (int repair = idx + 2; repair < players.size(); ++repair) {
+    auto& candidate = players[repair];
+
+    // If possible, pair the candidate with one of the players from the invalid
+    // pairing.
+    if (!candidate->has_played_opp(left)) {
+      std::swap(right, candidate);
+      return true;
+    }
+    if (!candidate->has_played_opp(right)) {
+      std::swap(left, candidate);
+      return true;
+    }
+  }
+  return false;
+}
+
+bool AttemptShuffle(std::pair<Player, Player>& bad, std::pair<Player, Player>& good) {
+  auto& a = bad.first;
+  auto& b = bad.second;
+  auto& c = good.first;
+  auto& d = good.second;
+  if (Valid(a, d) && Valid(b, c)) {
+    std::swap(a, c);
+    return true;
+  }
+  if (Valid(a, c) && Valid(b, d)) {
+    std::swap(a, d);
+    return true;
+  }
+  return false;
+}
+
+// TODO: This is a pretty naive and probably bad pairing algo.
+template <typename URBG>
+PerMatchPointPairing Pair(std::vector<Player> players, URBG& urbg) {
+  std::shuffle(players.begin(), players.end(), urbg);
+  int idx = 0;
+  std::vector<Player> paired_players;
+  std::vector<Player> problem_players;
+  paired_players.reserve(players.size());
+  for (; idx + 1 < players.size(); idx += 2) {
+    auto& left = players[idx];
+    auto& right = players[idx+1];
+
+    // Leave this pairing "as is", for now.
+    if (Valid(left, right)) {
+      paired_players.push_back(left);
+      paired_players.push_back(right);
+      continue;
+    }
+
+    // This particular line gives this for-loop a potential O(n^2) run time.
+    if (AttemptForwardRepair(players, idx)) {
+      // The attempt function in-place modifies the vector, but we double-check.
+      assert(Valid(left, right));
+      paired_players.push_back(left);
+      paired_players.push_back(right);
+      continue;
+    }
+
+    // Just pretend we can deal with this later...
+    problem_players.push_back(left);
+    problem_players.push_back(right);
+  }
+  // Odd number of players, using bit-wise odd number check.
+  if ((players.size() & 1) != 0) {
+    // Odd number of players in this chunk.
+    problem_players.push_back(players[idx]);
+  }
+  // This means we have a maximal pairing among the current players.
+  if (problem_players.size() <= 1) {
+    return PerMatchPointPairing(paired_players, problem_players);
+  }
+
+  // Temporary, initial pairing.
+  PerMatchPointPairing out(paired_players, {});
+  absl::flat_hash_set<int> bad_indices;
+  for (int idx = 0; idx + 1 < problem_players.size(); idx += 2) {
+    auto bad_pair = std::make_pair(problem_players[idx],
+                                    problem_players[idx + 1]);
+    bool repair_success = false;
+    for (auto& pair : out.pairings) {
+      if ((repair_success = AttemptShuffle(bad_pair, pair))) {
+        // bad_pair now contains a valid matching, as does the in-place updated
+        // pair.
+        out.pairings.push_back(std::move(bad_pair));
+        break;
+      }
+    }
+
+    // Couldn't repair these two despite inspecting every other match for
+    // possible swaps. Probably terrible luck.
+    if (!repair_success) {
+      bad_indices.insert(idx);
+      bad_indices.insert(idx+1);
+    }
+  }
+  out.remainders.reserve(bad_indices.size());
+  for (auto idx : bad_indices) out.remainders.push_back(problem_players[idx]);
+
+  // TODO: Log if out.remainders.size() > 1 ? Although we can maybe be smart
+  // about the "draw bracket" case.
+  return out;
+}
+}  // namespace 
+
+// TODO: Look into benchmarking this function eventually.
+absl::Status RoundImpl::GenerateSwissPairings() {
   auto p = parent_.Lock();
   if (!p.ok()) return p.status();
 
   Tournament parent = *std::move(p);
   auto players = parent->ActivePlayers();
 
-  // TODO: Shuffle the vectors and generate pairings.
+  std::vector<std::pair<Player, Player>> pairings;
+  std::vector<Player> remainders;
+  for (auto it = players.rbegin(); it != players.rend(); ++it) {
+    auto& current = it->second;
+
+    // Collect any unpaired players from the last attempt.
+    for (auto& p : remainders) current.push_back(std::move(p));
+    auto tmp = Pair(std::move(current), parent->rand());
+
+    for (auto& pair : tmp.pairings) pairings.push_back(std::move(pair));
+    remainders = std::move(tmp.remainders);
+  }
+  assert(remainders.size() <= 1);
+
+  absl::MutexLock l(&mu_);
+  for (uint32_t idx = 0; idx < pairings.size(); ++idx) {
+    MatchId id{id_, idx + 1};
+    auto& l = pairings[idx].first;
+    auto& r = pairings[idx].second;
+    outstanding_matches_.insert({id, Match::Impl::CreatePairing(l, r, id)});
+  }
 
   return absl::OkStatus();
 }

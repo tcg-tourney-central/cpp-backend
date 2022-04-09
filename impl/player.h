@@ -46,11 +46,11 @@ class PlayerImpl : public MemoryManagedImplementation<PlayerImpl> {
     return absl::StrCat("Player (", display_name_, ")");
   }
 
-  bool has_played_opp(const Player& p) const;
+  bool has_played_opp(const Player& p) const  ABSL_LOCKS_EXCLUDED(mu_);
 
   uint16_t match_points() const { return match_points_; }
   Fraction mwp() const { 
-    return Fraction(match_points_, 3 * matches_played()).ApplyMtrBound();
+    return Fraction(match_points_, 3 * matches_.size()).ApplyMtrBound();
   }
   Fraction gwp() const { 
     return Fraction(game_points_, 3 * games_played_).ApplyMtrBound();
@@ -73,8 +73,6 @@ class PlayerImpl : public MemoryManagedImplementation<PlayerImpl> {
   // documentation on std::enable_shared_from_this.
   void Init() { InitSelfPtr(); } 
   Player this_player() const { return Player(self_copy()); }
-
-  uint16_t matches_played() const { return matches_.size(); }
 
   const Player::Id id_;
   const std::string last_name_;

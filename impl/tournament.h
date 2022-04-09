@@ -1,6 +1,8 @@
 #ifndef _TCGTC_TOURNAMENT_H_
 #define _TCGTC_TOURNAMENT_H_
 
+#include <random>
+
 #include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
@@ -69,6 +71,8 @@ class TournamentImpl : MemoryManagedImplementation<TournamentImpl> {
   std::map<uint32_t, std::vector<Player>> ActivePlayers() const
       ABSL_LOCKS_EXCLUDED(mu_);
 
+  std::mt19937_64& rand() const { return rand_; }
+
  private:
   Tournament::View self_view() const { 
     return Tournament::CreateView(self_ref());
@@ -88,6 +92,7 @@ class TournamentImpl : MemoryManagedImplementation<TournamentImpl> {
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   const Options opts_;
+  mutable std::mt19937_64 rand_;
 
   mutable absl::Mutex mu_;
   // Canonical store of player information for all players in the tournament.

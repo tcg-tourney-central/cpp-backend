@@ -48,7 +48,7 @@ class RoundImpl : public MemoryManagedImplementation<RoundImpl> {
   explicit RoundImpl(const Options& opts);
   Round this_round() const { return Round(self_copy()); }
 
-  absl::Status GeneratePairings();
+  absl::Status GenerateSwissPairings();
 
   const Round::Id id_;
   const Tournament::View parent_;
