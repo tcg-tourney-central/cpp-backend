@@ -2,7 +2,6 @@
 
 #include <algorithm>
 
-#include "absl/container/flat_hash_set.h"
 #include "match-id.h"
 #include "match-result.h"
 #include "player-match.h"
@@ -88,8 +87,8 @@ bool AttemptInPlaceRepair(std::pair<Player, Player>& bad,
 void AttemptFixes(PerMatchPointPairing& out) {
   std::vector<Player> problem_players;
   problem_players.swap(out.remainders);
+  std::shuffle(problem_players.begin(), problem_players.end(), urbg);
 
-  absl::flat_hash_set<int> bad_indices;
   for (int idx = 0; idx + 1 < problem_players.size(); idx += 2) {
     auto bad_pair = std::make_pair(problem_players[idx],
                                     problem_players[idx + 1]);
@@ -106,12 +105,10 @@ void AttemptFixes(PerMatchPointPairing& out) {
     // Couldn't repair these two despite inspecting every other match for
     // possible swaps. Probably terrible luck.
     if (!repair_success) {
-      bad_indices.insert(idx);
-      bad_indices.insert(idx+1);
+      out.remainders.push_back(std::move(bad_pair.first));
+      out.remainders.push_back(std::move(bad_pair.second));
     }
   }
-  out.remainders.reserve(bad_indices.size());
-  for (auto idx : bad_indices) out.remainders.push_back(problem_players[idx]);
 }
 
 // TODO: This is a pretty naive and probably bad pairing algo.
@@ -122,6 +119,7 @@ PerMatchPointPairing Pair(std::vector<Player> players, URBG& urbg) {
   std::vector<Player> paired_players;
   std::vector<Player> problem_players;
   paired_players.reserve(players.size());
+
   for (int idx = 0; idx + 1 < players.size(); idx += 2) {
     auto& left = players[idx];
     auto& right = players[idx+1];
@@ -150,7 +148,13 @@ PerMatchPointPairing Pair(std::vector<Player> players, URBG& urbg) {
 
     // This accounts for the "draw bracket" case.
     // TODO: Is it possible that we have equal sizes and have to run again?
-    if (out.remainders.size() == prev_size) break;
+    if (out.remainders.size() == prev_size) {
+      AttemptFixes(out);
+
+      // TODO: I am pretty sure this isn't correct, but it is in probability
+      // good enough for now.
+      if (out.remainders.size() == prev_size) break;
+    }
   }
   return out;
 }
