@@ -38,8 +38,9 @@ http_archive(
 
 http_archive(
     name = "com_google_protobuf",
-    strip_prefix = "protobuf-master",
-    urls = ["https://github.com/protocolbuffers/protobuf/archive/master.zip"],
+    urls = ["https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.20.0.tar.gz"],
+    strip_prefix = "protobuf-3.20.0",
+    sha256 = "b07772d38ab07e55eca4d50f4b53da2d998bb221575c60a4f81100242d4b4889",
 )
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 protobuf_deps()
@@ -49,7 +50,7 @@ http_archive(
     urls = [
         "https://github.com/grpc/grpc/archive/refs/tags/v1.45.2.tar.gz",
     ],
-    strip_prefix = "grpc-v1.45.2",
+    strip_prefix = "grpc-1.45.2",
 )
 load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
 grpc_deps()
