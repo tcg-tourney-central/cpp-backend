@@ -119,16 +119,21 @@ absl::Status TournamentImpl::JudgeSetResult(const MatchResult& result) {
 // For now, require a request to pair the next round, but we can maybe
 // consider doing this automagically when all pairings are received in the
 // previous round.
-absl::StatusOr<Round> TournamentImpl::PairNextRound() {
+absl::StatusOr<Round> TournamentImpl::PairNextRound(bool generate_standings) {
   absl::ReleasableMutexLock l(&mu_);
 
   // Next round number.
-  uint8_t round_num = rounds_.size() + 1;
+  RoundId round_num = rounds_.size() + 1;
   if (round_num > opts_.swiss_rounds) round_num |= kBracketBit;
   if (!rounds_.empty()) {
     Round prev = rounds_.rbegin()->second;
     if (!prev->RoundComplete()) {
       return Err(prev->ErrorStringId(), " is not complete!");
+    }
+    if (generate_standings) {
+      auto s = GenerateStandings();
+      if (!s.ok()) return s.status();
+      standings_.insert({round_num, *std::move(s)});
     }
   }
 
@@ -141,6 +146,29 @@ absl::StatusOr<Round> TournamentImpl::PairNextRound() {
 
   if (auto out = next->Init(); !out.ok()) return out;
   return next;
+}
+
+absl::StatusOr<TournamentImpl::Standings>
+TournamentImpl::GenerateStandings() const {
+  std::vector<Standing> standing;
+  standing.reserve(players_.size());
+
+  for (const auto& [id, p] : players_) {
+    standing.push_back(Standing{0, p, p->ComputeBreakers()});
+  }
+  std::sort(standing.begin(), standing.end(), [](auto& l, auto& r) {
+    // We want to do GT sorting.
+    return r.info < l.info;
+  });
+
+  for (uint32_t place = 0; place < standing.size(); ++place) {
+    standing[place].place = place + 1;  // Switch to 1-index.
+  }
+
+  auto dst = std::make_shared<std::vector<Standing>>();
+  dst->swap(standing);
+
+  return Standings{std::move(dst)};
 }
 
 }  // namespace internal

@@ -56,7 +56,19 @@ class TournamentImpl : MemoryManagedImplementation<TournamentImpl> {
   // For now, require a request to pair the next round, but we can maybe
   // consider doing this automagically when all pairings are received in the
   // previous round.
-  absl::StatusOr<Round> PairNextRound();
+  absl::StatusOr<Round> PairNextRound(bool generate_standings = false);
+
+
+  // Returns standings for the specified round, or the most recent standings generated.
+  struct Standing {
+    int place;
+    Player p;
+    TieBreakInfo info;
+  };
+  struct Standings {
+    std::shared_ptr<const std::vector<Standing>> standings;
+  };
+  absl::StatusOr<Standings> GetStandings(std::optional<RoundId> round = std::nullopt);
 
 
   // Accessors for information about the running tournament.
@@ -90,6 +102,7 @@ class TournamentImpl : MemoryManagedImplementation<TournamentImpl> {
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
   absl::StatusOr<Round> CurrentRoundLocked() const
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+  absl::StatusOr<Standings> GenerateStandings() const ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   const Options opts_;
   mutable std::mt19937_64 rand_;
@@ -100,7 +113,10 @@ class TournamentImpl : MemoryManagedImplementation<TournamentImpl> {
   absl::flat_hash_map<Player::Id, Player> active_players_ ABSL_GUARDED_BY(mu_);
   absl::flat_hash_map<Player::Id, Player> dropped_players_ ABSL_GUARDED_BY(mu_);
   absl::flat_hash_map<MatchId, Match> matches_ ABSL_GUARDED_BY(mu_);
+
+
   std::map<Round::Id, Round> rounds_ ABSL_GUARDED_BY(mu_);
+  std::map<RoundId, Standings> standings_ ABSL_GUARDED_BY(mu_);
 };
 
 }  // namespace internal
