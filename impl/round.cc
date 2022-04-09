@@ -93,6 +93,11 @@ void AttemptFixes(PerMatchPointPairing& out, URBG& urbg) {
   for (int idx = 0; idx + 1 < problem_players.size(); idx += 2) {
     auto bad_pair = std::make_pair(problem_players[idx],
                                     problem_players[idx + 1]);
+    // Check if this pairing is good post-shuffle.
+    if (ValidPairing(bad_pair)) {
+      out.pairings.push_back(std::move(bad_pair));
+      continue;
+    }
     bool repair_success = false;
     for (auto& pair : out.pairings) {
       if ((repair_success = AttemptInPlaceRepair(bad_pair, pair))) {
@@ -114,7 +119,7 @@ void AttemptFixes(PerMatchPointPairing& out, URBG& urbg) {
 
 // TODO: This is a pretty naive and probably bad pairing algo.
 template <typename URBG>
-PerMatchPointPairing Pair(std::vector<Player> players, URBG& urbg) {
+PerMatchPointPairing PairChunk(std::vector<Player> players, URBG& urbg) {
   std::shuffle(players.begin(), players.end(), urbg);
 
   std::vector<Player> paired_players;
@@ -176,7 +181,7 @@ absl::Status RoundImpl::GenerateSwissPairings() {
 
     // Collect any unpaired players from the last attempt.
     for (auto& p : remainders) current.push_back(std::move(p));
-    auto tmp = Pair(std::move(current), parent->rand());
+    auto tmp = PairChunk(std::move(current), parent->rand());
 
     for (auto& pair : tmp.pairings) pairings.push_back(std::move(pair));
     remainders = std::move(tmp.remainders);
@@ -187,11 +192,16 @@ absl::Status RoundImpl::GenerateSwissPairings() {
   assert(remainders.size() <= 1);
 
   absl::MutexLock l(&mu_);
-  for (uint32_t idx = 0; idx < pairings.size(); ++idx) {
-    MatchId id{id_, idx + 1};
-    auto& l = pairings[idx].first;
-    auto& r = pairings[idx].second;
+  IdGen gen(id_);
+  for (auto& p : pairings) {
+    MatchId id = gen.next();
+    auto& l = p.first;
+    auto& r = p.second;
     outstanding_matches_.insert({id, Match::Impl::CreatePairing(l, r, id)});
+  }
+  for (auto& p : remainders) {
+    MatchId id = gen.next();
+    reported_matches_.insert({id, Match::Impl::CreateBye(p, id)});
   }
 
   return absl::OkStatus();

@@ -53,6 +53,17 @@ struct MatchId {
   }
 };
 
+class IdGen {
+ public:
+  explicit IdGen(RoundId round) : round_(round) {}
+
+  MatchId next() { return {round_, ++id_}; }
+
+ private:
+  RoundId round_;
+  uint32_t id_ = 0;
+};
+
 inline bool operator<(const MatchId& l, const MatchId& r) {  
   return l.id() < r.id();
 }
