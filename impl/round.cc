@@ -1,8 +1,9 @@
-#include "round.h"
+#include "impl/round.h"
 
 #include "match-id.h"
 #include "match-result.h"
 #include "player-match.h"
+#include "impl/tournament.h"
 #include "util.h"
 
 namespace tcgtc {

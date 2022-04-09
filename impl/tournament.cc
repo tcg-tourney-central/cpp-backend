@@ -1,7 +1,7 @@
-#include "tournament-impl.h"
+#include "impl/tournament.h"
 
 #include "player-match.h"
-#include "round.h"
+#include "impl/round.h"
 
 namespace tcgtc {
 namespace internal {
