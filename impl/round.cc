@@ -84,7 +84,8 @@ bool AttemptInPlaceRepair(std::pair<Player, Player>& bad,
   return false;
 }
 
-void AttemptFixes(PerMatchPointPairing& out) {
+template <typename URBG>
+void AttemptFixes(PerMatchPointPairing& out, URBG& urbg) {
   std::vector<Player> problem_players;
   problem_players.swap(out.remainders);
   std::shuffle(problem_players.begin(), problem_players.end(), urbg);
@@ -144,12 +145,12 @@ PerMatchPointPairing Pair(std::vector<Player> players, URBG& urbg) {
   // Attempt to mix any unpairable "pairs" into the existing valid pairings.
   while (out.remainders.size() > 1) {
     auto prev_size = out.remainders.size();
-    AttemptFixes(out);
+    AttemptFixes(out, urbg);
 
     // This accounts for the "draw bracket" case.
     // TODO: Is it possible that we have equal sizes and have to run again?
     if (out.remainders.size() == prev_size) {
-      AttemptFixes(out);
+      AttemptFixes(out, urbg);
 
       // TODO: I am pretty sure this isn't correct, but it is in probability
       // good enough for now.
