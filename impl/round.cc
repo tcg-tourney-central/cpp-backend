@@ -68,29 +68,7 @@ bool ValidPairing(const std::pair<Player, Player>& pair) {
   return ValidPairing(pair.first, pair.second);
 }
 
-// Attempts to find an opponent in the "unpaired" portion of the vector for the
-// current invalid pairing.
-bool AttemptForwardRepair(std::vector<Player>& players, int idx) {
-  auto& left = players[idx];
-  auto& right = players[idx+1];
-  for (int repair = idx + 2; repair < players.size(); ++repair) {
-    auto& candidate = players[repair];
-
-    // If possible, pair the candidate with one of the players from the invalid
-    // pairing.
-    if (ValidPairing(left, candidate)) {
-      std::swap(right, candidate);
-      return true;
-    }
-    if (ValidPairing(right, candidate)) {
-      std::swap(left, candidate);
-      return true;
-    }
-  }
-  return false;
-}
-
-bool AttemptShuffle(std::pair<Player, Player>& bad, 
+bool AttemptInPlaceRepair(std::pair<Player, Player>& bad, 
                     std::pair<Player, Player>& good) {
   auto& a = bad.first;
   auto& b = bad.second;
@@ -105,6 +83,35 @@ bool AttemptShuffle(std::pair<Player, Player>& bad,
     return true;
   }
   return false;
+}
+
+void AttemptFixes(PerMatchPointPairing& out) {
+  std::vector<Player> problem_players;
+  problem_players.swap(out.remainders);
+
+  absl::flat_hash_set<int> bad_indices;
+  for (int idx = 0; idx + 1 < problem_players.size(); idx += 2) {
+    auto bad_pair = std::make_pair(problem_players[idx],
+                                    problem_players[idx + 1]);
+    bool repair_success = false;
+    for (auto& pair : out.pairings) {
+      if ((repair_success = AttemptInPlaceRepair(bad_pair, pair))) {
+        // bad_pair now contains a valid matching, as does the in-place updated
+        // pair.
+        out.pairings.push_back(std::move(bad_pair));
+        break;
+      }
+    }
+
+    // Couldn't repair these two despite inspecting every other match for
+    // possible swaps. Probably terrible luck.
+    if (!repair_success) {
+      bad_indices.insert(idx);
+      bad_indices.insert(idx+1);
+    }
+  }
+  out.remainders.reserve(bad_indices.size());
+  for (auto idx : bad_indices) out.remainders.push_back(problem_players[idx]);
 }
 
 // TODO: This is a pretty naive and probably bad pairing algo.
@@ -125,17 +132,6 @@ PerMatchPointPairing Pair(std::vector<Player> players, URBG& urbg) {
       paired_players.push_back(right);
       continue;
     }
-
-    // This particular line gives this for-loop a potential O(n^2) run time.
-    if (AttemptForwardRepair(players, idx)) {
-      // The attempt function in-place modifies the vector, but we double-check.
-      assert(ValidPairing(left, right));
-      paired_players.push_back(left);
-      paired_players.push_back(right);
-      continue;
-    }
-
-    // Just pretend we can deal with this later...
     problem_players.push_back(left);
     problem_players.push_back(right);
   }
@@ -143,39 +139,19 @@ PerMatchPointPairing Pair(std::vector<Player> players, URBG& urbg) {
   if ((players.size() & 1) != 0) {
     problem_players.push_back(players.back());
   }
-  // This means we have a maximal pairing among the current players.
-  if (problem_players.size() <= 1) {
-    return PerMatchPointPairing(paired_players, problem_players);
+
+  // Initial pairing.
+  PerMatchPointPairing out(paired_players, problem_players);
+
+  // Attempt to mix any unpairable "pairs" into the existing valid pairings.
+  while (out.remainders.size() > 1) {
+    auto prev_size = out.remainders.size();
+    AttemptFixes(out);
+
+    // This accounts for the "draw bracket" case.
+    // TODO: Is it possible that we have equal sizes and have to run again?
+    if (out.remainders.size() == prev_size) break;
   }
-
-  // Temporary, initial pairing.
-  PerMatchPointPairing out(paired_players, {});
-  absl::flat_hash_set<int> bad_indices;
-  for (int idx = 0; idx + 1 < problem_players.size(); idx += 2) {
-    auto bad_pair = std::make_pair(problem_players[idx],
-                                    problem_players[idx + 1]);
-    bool repair_success = false;
-    for (auto& pair : out.pairings) {
-      if ((repair_success = AttemptShuffle(bad_pair, pair))) {
-        // bad_pair now contains a valid matching, as does the in-place updated
-        // pair.
-        out.pairings.push_back(std::move(bad_pair));
-        break;
-      }
-    }
-
-    // Couldn't repair these two despite inspecting every other match for
-    // possible swaps. Probably terrible luck.
-    if (!repair_success) {
-      bad_indices.insert(idx);
-      bad_indices.insert(idx+1);
-    }
-  }
-  out.remainders.reserve(bad_indices.size());
-  for (auto idx : bad_indices) out.remainders.push_back(problem_players[idx]);
-
-  // TODO: Log if out.remainders.size() > 1 ? Although we can maybe be smart
-  // about the "draw bracket" case.
   return out;
 }
 }  // namespace 
