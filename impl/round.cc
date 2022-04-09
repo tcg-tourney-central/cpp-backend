@@ -61,7 +61,7 @@ struct PerMatchPointPairing {
   std::vector<Player> remainders;
 };
 
-bool Valid(const Player& l, const Player& r) {
+bool ValidPairing(const Player& l, const Player& r) { 
   return !l->has_played_opp(r);
 }
 
@@ -75,11 +75,11 @@ bool AttemptForwardRepair(std::vector<Player>& players, int idx) {
 
     // If possible, pair the candidate with one of the players from the invalid
     // pairing.
-    if (!candidate->has_played_opp(left)) {
+    if (ValidPairing(left, candidate)) {
       std::swap(right, candidate);
       return true;
     }
-    if (!candidate->has_played_opp(right)) {
+    if (ValidPairing(right, candidate)) {
       std::swap(left, candidate);
       return true;
     }
@@ -87,16 +87,17 @@ bool AttemptForwardRepair(std::vector<Player>& players, int idx) {
   return false;
 }
 
-bool AttemptShuffle(std::pair<Player, Player>& bad, std::pair<Player, Player>& good) {
+bool AttemptShuffle(std::pair<Player, Player>& bad, 
+                    std::pair<Player, Player>& good) {
   auto& a = bad.first;
   auto& b = bad.second;
   auto& c = good.first;
   auto& d = good.second;
-  if (Valid(a, d) && Valid(b, c)) {
+  if (ValidPairing(a, d) && ValidPairing(b, c)) {
     std::swap(a, c);
     return true;
   }
-  if (Valid(a, c) && Valid(b, d)) {
+  if (ValidPairing(a, c) && ValidPairing(b, d)) {
     std::swap(a, d);
     return true;
   }
@@ -116,7 +117,7 @@ PerMatchPointPairing Pair(std::vector<Player> players, URBG& urbg) {
     auto& right = players[idx+1];
 
     // Leave this pairing "as is", for now.
-    if (Valid(left, right)) {
+    if (ValidPairing(left, right)) {
       paired_players.push_back(left);
       paired_players.push_back(right);
       continue;
@@ -125,7 +126,7 @@ PerMatchPointPairing Pair(std::vector<Player> players, URBG& urbg) {
     // This particular line gives this for-loop a potential O(n^2) run time.
     if (AttemptForwardRepair(players, idx)) {
       // The attempt function in-place modifies the vector, but we double-check.
-      assert(Valid(left, right));
+      assert(ValidPairing(left, right));
       paired_players.push_back(left);
       paired_players.push_back(right);
       continue;
