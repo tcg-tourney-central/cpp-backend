@@ -65,12 +65,6 @@ class MatchImpl : public MemoryManagedImplementation<MatchImpl> {
   const Player a_;
   const std::optional<Player> b_;
 
-  // Can't store a std::shared_ptr to ourselves or this would be a memory leak,
-  // used to allow `this_match()` to be const-qualified. Cannot be initialized
-  // in the constructor, as `weak_from_this()` is unavailable, but otherwise is
-  // effectively const.
-  std::weak_ptr<MatchImpl> self_ptr_;
-
   mutable absl::Mutex mu_;
 
   // Reported results, per player.

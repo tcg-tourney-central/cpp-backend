@@ -38,13 +38,11 @@ absl::Status RoundImpl::JudgeSetResult(Match m) {
 }
 
 absl::Status RoundImpl::GeneratePairings() {
-  /*
   auto p = parent_.Lock();
   if (!p.ok()) return p.status();
 
   Tournament parent = *std::move(p);
   auto players = parent->ActivePlayers();
-  */
 
   // TODO: Shuffle the vectors and generate pairings.
 

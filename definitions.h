@@ -7,6 +7,7 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "container-class.h"
+#include "match-id.h"
 
 namespace tcgtc {
 namespace internal {
@@ -44,8 +45,7 @@ class Match : public ContainerClass<internal::MatchImpl> {
 class Round : public ContainerClass<internal::RoundImpl> {
  public:
   using Impl = ::tcgtc::internal::RoundImpl;
-  // TODO: Consolidate this with MatchId.round;
-  using Id = uint8_t;
+  using Id = RoundId;
 
  private:
   explicit Round(std::shared_ptr<Impl> impl)

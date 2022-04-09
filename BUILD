@@ -14,6 +14,7 @@ cc_library(
   hdrs = ["definitions.h"],
   deps = [
     ":container-class",
+    ":match-id",
     "@com_google_absl//absl/status",
     "@com_google_absl//absl/status:statusor",
   ],

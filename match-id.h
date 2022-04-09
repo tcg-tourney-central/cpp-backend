@@ -12,6 +12,8 @@ namespace tcgtc {
 constexpr uint8_t kBracketBit = 1 << 7;
 constexpr uint8_t kRoundMask = ~kBracketBit;
 
+using RoundId = uint8_t;
+
 // A round and match number (within that round) which together uniquely identify
 // a match within a tournament.
 struct MatchId {
@@ -21,7 +23,7 @@ struct MatchId {
   //
   // Notably this allows a "lex" sort of packed (round, number) to be accurate
   // w/r/t the natural integer ordering.
-  uint8_t round;
+  RoundId round;
   // The match number per-round, packed into 24-bits. /.This allows ~16 million
   // matches in a single round. Seems fine.
   uint32_t number : 24;
