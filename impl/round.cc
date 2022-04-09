@@ -64,6 +64,9 @@ struct PerMatchPointPairing {
 bool ValidPairing(const Player& l, const Player& r) { 
   return !l->has_played_opp(r);
 }
+bool ValidPairing(const std::pair<Player, Player>& pair) { 
+  return ValidPairing(pair.first, pair.second);
+}
 
 // Attempts to find an opponent in the "unpaired" portion of the vector for the
 // current invalid pairing.
@@ -108,11 +111,11 @@ bool AttemptShuffle(std::pair<Player, Player>& bad,
 template <typename URBG>
 PerMatchPointPairing Pair(std::vector<Player> players, URBG& urbg) {
   std::shuffle(players.begin(), players.end(), urbg);
-  int idx = 0;
+
   std::vector<Player> paired_players;
   std::vector<Player> problem_players;
   paired_players.reserve(players.size());
-  for (; idx + 1 < players.size(); idx += 2) {
+  for (int idx = 0; idx + 1 < players.size(); idx += 2) {
     auto& left = players[idx];
     auto& right = players[idx+1];
 
@@ -138,8 +141,7 @@ PerMatchPointPairing Pair(std::vector<Player> players, URBG& urbg) {
   }
   // Odd number of players, using bit-wise odd number check.
   if ((players.size() & 1) != 0) {
-    // Odd number of players in this chunk.
-    problem_players.push_back(players[idx]);
+    problem_players.push_back(players.back());
   }
   // This means we have a maximal pairing among the current players.
   if (problem_players.size() <= 1) {
@@ -198,6 +200,9 @@ absl::Status RoundImpl::GenerateSwissPairings() {
     for (auto& pair : tmp.pairings) pairings.push_back(std::move(pair));
     remainders = std::move(tmp.remainders);
   }
+  assert(std::all_of(pairings.begin(), pairings.end(), [](auto p){
+     return ValidPairing(p);
+  }));
   assert(remainders.size() <= 1);
 
   absl::MutexLock l(&mu_);
