@@ -1,11 +1,11 @@
-#include "match.h"
+#include "cpp/impl/match.h"
 
 #include <algorithm>
 
-#include "match-id.h"
-#include "match-result.h"
-#include "player.h"
-#include "util.h"
+#include "cpp/match-id.h"
+#include "cpp/match-result.h"
+#include "cpp/impl/player.h"
+#include "cpp/util.h"
 
 namespace tcgtc {
 namespace internal {

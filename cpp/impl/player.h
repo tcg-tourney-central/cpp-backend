@@ -13,13 +13,13 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/synchronization/mutex.h"
-#include "container-class.h"
-#include "definitions.h"
-#include "fraction.h"
-#include "match-id.h"
-#include "match-result.h"
-#include "tiebreaker.h"
-#include "util.h"
+#include "cpp/container-class.h"
+#include "cpp/definitions.h"
+#include "cpp/fraction.h"
+#include "cpp/match-id.h"
+#include "cpp/match-result.h"
+#include "cpp/tiebreaker.h"
+#include "cpp/util.h"
 
 namespace tcgtc {
 namespace internal {

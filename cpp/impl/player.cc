@@ -2,10 +2,10 @@
 
 #include <cstdint>
 
-#include "match.h"
-#include "match-id.h"
-#include "match-result.h"
-#include "util.h"
+#include "cpp/impl/match.h"
+#include "cpp/match-id.h"
+#include "cpp/match-result.h"
+#include "cpp/util.h"
 
 namespace tcgtc {
 namespace internal {

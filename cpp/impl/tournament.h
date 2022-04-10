@@ -8,12 +8,13 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/synchronization/mutex.h"
-#include "definitions.h"
-#include "match-id.h"
-#include "match-result.h"
-#include "player-match.h"
-#include "round.h"
-#include "util.h"
+#include "cpp/container-class.h"
+#include "cpp/definitions.h"
+#include "cpp/match-id.h"
+#include "cpp/match-result.h"
+#include "cpp/player-match.h"
+#include "cpp/impl/round.h"
+#include "cpp/util.h"
 
 namespace tcgtc {
 namespace internal {

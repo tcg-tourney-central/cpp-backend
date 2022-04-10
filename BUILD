@@ -5,13 +5,13 @@ load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
 
 cc_library(
   name = "container-class",
-  hdrs = ["container-class.h"],
+  hdrs = ["cpp/container-class.h"],
   copts = ["/std:c++17"],
 )
 
 cc_library(
   name = "definitions",
-  hdrs = ["definitions.h"],
+  hdrs = ["cpp/definitions.h"],
   deps = [
     ":container-class",
     ":match-id",
@@ -23,14 +23,14 @@ cc_library(
 
 cc_library(
   name = "fraction",
-  hdrs = ["fraction.h"],
-  srcs = ["fraction.cc"],
+  hdrs = ["cpp/fraction.h"],
+  srcs = ["cpp/fraction.cc"],
   copts = ["/std:c++17"],
 )
 
 cc_library(
   name = "match-id",
-  hdrs = ["match-id.h"],
+  hdrs = ["cpp/match-id.h"],
   deps = [
     "@com_google_absl//absl/hash",
     "@com_google_absl//absl/strings",
@@ -40,8 +40,8 @@ cc_library(
 
 cc_library(
   name = "match-result",
-  hdrs = ["match-result.h"],
-  srcs = ["match-result.cc"],
+  hdrs = ["cpp/match-result.h"],
+  srcs = ["cpp/match-result.cc"],
   deps = [
     ":match-id",
     ":util",
@@ -52,12 +52,12 @@ cc_library(
 
 cc_library(
   name = "player-match",
-  hdrs = ["player-match.h"],
+  hdrs = ["cpp/player-match.h"],
   srcs = [
-    "impl/match.h", 
-    "impl/match.cc",
-    "impl/player.h",
-    "impl/player.cc"
+    "cpp/impl/match.h", 
+    "cpp/impl/match.cc",
+    "cpp/impl/player.h",
+    "cpp/impl/player.cc"
   ],
   deps = [
     ":container-class",
@@ -78,8 +78,8 @@ cc_library(
 
 cc_library(
   name = "tiebreaker",
-  hdrs = ["tiebreaker.h"],
-  srcs = ["tiebreaker.cc"],
+  hdrs = ["cpp/tiebreaker.h"],
+  srcs = ["cpp/tiebreaker.cc"],
   deps = [
     ":fraction",
   ],
@@ -88,8 +88,8 @@ cc_library(
 
 cc_library(
   name = "tournament",
-  hdrs = ["impl/round.h", "impl/tournament.h"],
-  srcs = ["impl/round.cc", "impl/tournament.cc"],
+  hdrs = ["cpp/impl/round.h", "cpp/impl/tournament.h"],
+  srcs = ["cpp/impl/round.cc", "cpp/impl/tournament.cc"],
   deps = [
     ":definitions",
     ":match-id",
@@ -106,7 +106,7 @@ cc_library(
 
 cc_library(
   name = "util",
-  hdrs = ["util.h"],
+  hdrs = ["cpp/util.h"],
   deps = [
     "@com_google_absl//absl/status",
     "@com_google_absl//absl/strings",

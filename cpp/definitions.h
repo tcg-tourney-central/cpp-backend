@@ -6,8 +6,8 @@
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "container-class.h"
-#include "match-id.h"
+#include "cpp/container-class.h"
+#include "cpp/match-id.h"
 
 namespace tcgtc {
 namespace internal {
