@@ -35,8 +35,7 @@ class PlayerImpl : public MemoryManagedImplementation<PlayerImpl> {
   };
   static Player CreatePlayer(Options opts);
 
-  // TODO: Probably determined by the player's persistent stored ID, but can be
-  // per-tournament.
+  // The persistent ID in the DB schema.
   Player::Id id() const { return id_; }
   const std::string& last_name() const { return last_name_; }
   const std::string& first_name() const { return first_name_; }
@@ -94,6 +93,7 @@ class PlayerImpl : public MemoryManagedImplementation<PlayerImpl> {
 };
 
 bool operator==(const Player& l, const Player& r);
+bool operator!=(const Player& l, const Player& r);
 bool operator<(const Player& l, const Player& r);
 
 }  // namespace internal

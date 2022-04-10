@@ -1,5 +1,7 @@
 #include "match.h"
 
+#include <algorithm>
+
 #include "match-id.h"
 #include "match-result.h"
 #include "player.h"
@@ -19,7 +21,13 @@ Match MatchImpl::CreateBye(Player p, MatchId id) {
 }
 
 Match MatchImpl::CreatePairing(Player a, Player b, MatchId id) {
-  Match m(std::shared_ptr<MatchImpl>(new MatchImpl(a, b, id)));
+  assert(a != b);
+
+  // We do this so that we have a consistent order of lock acquisition when we
+  // e.g. commit results back to players once confirmed.
+  auto l = a < b ? a : b;
+  auto r = a < b ? b : a;
+  Match m(std::shared_ptr<MatchImpl>(new MatchImpl(l, r, id)));
   m->Init();
   return m;
 }

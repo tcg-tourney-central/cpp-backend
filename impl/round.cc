@@ -46,7 +46,8 @@ absl::Status RoundImpl::JudgeSetResult(Match m) {
 namespace {
 struct PerMatchPointPairing {
   PerMatchPointPairing() = default;
-  PerMatchPointPairing(std::vector<Player> pairs, std::vector<Player> leftovers) {
+  PerMatchPointPairing(std::vector<Player> pairs, 
+                       std::vector<Player> leftovers) {
     assert((pairs.size() & 1) == 0);
     pairings.reserve(pairs.size() >> 1);
     for (int idx = 0; idx + 1 < pairs.size(); idx += 2) {
@@ -68,7 +69,7 @@ bool ValidPairing(const std::pair<Player, Player>& pair) {
 }
 
 bool AttemptInPlaceRepair(std::pair<Player, Player>& bad, 
-                    std::pair<Player, Player>& good) {
+                          std::pair<Player, Player>& good) {
   auto& a = bad.first;
   auto& b = bad.second;
   auto& c = good.first;

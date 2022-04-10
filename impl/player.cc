@@ -1,5 +1,7 @@
 #include "player.h"
 
+#include <cstdint>
+
 #include "match.h"
 #include "match-id.h"
 #include "match-result.h"
@@ -115,18 +117,15 @@ TieBreakInfo PlayerImpl::ComputeBreakers() const {
 bool operator==(const Player& l, const Player& r) {
   if (l->id() != r->id()) return false;
 
-  // TODO: Add an invariant check that `l.player_ == r.player_`
+  assert(l.get() == r.get());
   return true;
 }
 
-bool operator<(const Player& l, const Player& r) {
-  // Skip the OMWP computations when possible.
-  uint16_t lhsmp = l->match_points();
-  uint16_t rhsmp = r->match_points();
-  if (lhsmp != rhsmp) return lhsmp < rhsmp;
+bool operator!=(const Player& l, const Player& r)  { return !(l == r); }
 
-  // Tie-break within equal match points.
-  return l->ComputeBreakers() < r->ComputeBreakers();
+bool operator<(const Player& l, const Player& r) {
+  return reinterpret_cast<uintptr_t>(l.get()) < 
+         reinterpret_cast<uintptr_t>(r.get());
 }
 
 }  // namespace internal

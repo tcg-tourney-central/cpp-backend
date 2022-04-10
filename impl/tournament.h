@@ -59,7 +59,8 @@ class TournamentImpl : MemoryManagedImplementation<TournamentImpl> {
   absl::StatusOr<Round> PairNextRound(bool generate_standings = false);
 
 
-  // Returns standings for the specified round, or the most recent standings generated.
+  // Returns standings for the specified round, or the most recent standings
+  // generated.
   struct Standing {
     int place;
     Player p;
@@ -68,7 +69,8 @@ class TournamentImpl : MemoryManagedImplementation<TournamentImpl> {
   struct Standings {
     std::shared_ptr<const std::vector<Standing>> standings;
   };
-  absl::StatusOr<Standings> GetStandings(std::optional<RoundId> round = std::nullopt);
+  absl::StatusOr<Standings> GetStandings(
+                                std::optional<RoundId> round = std::nullopt);
 
 
   // Accessors for information about the running tournament.
@@ -102,7 +104,8 @@ class TournamentImpl : MemoryManagedImplementation<TournamentImpl> {
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
   absl::StatusOr<Round> CurrentRoundLocked() const
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
-  absl::StatusOr<Standings> GenerateStandings() const ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
+  absl::StatusOr<Standings> GenerateStandings() const 
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   const Options opts_;
   mutable std::mt19937_64 rand_;
