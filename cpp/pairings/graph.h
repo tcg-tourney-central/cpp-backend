@@ -12,23 +12,15 @@ namespace internal {
 class NodeImpl;
 }  // namespace internal
 
-class Node : public ContainerClass<internal::NodeImpl> {
+class CanonicalNode;
+
+class Node : public RawView<internal::NodeImpl> {
  public:
+  // Allow implicit conversion from the RawContainer.
+  Node(const CanonicalNode& node);
+
   using Impl = ::tcgtc::internal::NodeImpl;
   using Id = uint64_t;
-
-  class View : public ImplementationView<Impl> {
-   public:
-    View() = default;
-    absl::StatusOr<Node> Lock() const {
-      if (auto ptr = lock(); ptr != nullptr) return Node(ptr);
-      return absl::FailedPreconditionError("Viewed Node destroyed.");
-    }
-   private:
-    explicit View(std::weak_ptr<Impl> impl)
-      : ImplementationView<Impl>(std::move(impl)) {}
-    friend class Node;
-  };
 
   // TODO: Do we want this method?
   bool Adjacent(const Node& n) const;
@@ -43,12 +35,18 @@ class Node : public ContainerClass<internal::NodeImpl> {
   }
 
  private:
-  explicit Node(std::shared_ptr<Impl> impl)
-    : ContainerClass(std::move(impl)) {}
+  explicit Node(Impl* impl) : RawView(impl) {}
 
   uintptr_t iptr() const; { return reinterpret_cast<uintptr_t>(get()); }
 
   friend class ::tcgtc::internal::NodeImpl;
+};
+
+// Holds the memory for a given node.
+class CanonicalNode : public RawContainer<internal::NodeImpl> {
+ public:
+  CanonicalNode();
+  Node view() const { return Node(*this); }
 };
 
 class Edge {
@@ -57,8 +55,8 @@ class Edge {
     assert(a_ != b);
   }
 
-  const Node& a() const { return a_; }
-  const Node& b() const { return b_; }
+  Node a() const { return a_; }
+  Node b() const { return b_; }
 
   bool operator==(const Edge& e) const;
   bool operator!=(const Edge& e) const;
@@ -75,19 +73,12 @@ class Edge {
 
 class Matching {
  public:
-  bool HasVertex(const Node& n) {
-    return edges_.contains(n);
-  }
-  bool HasEdge(const Edge& e) {
-    auto it = edges_.find(e.a());
-    return it != edges_.end() && it->second == e.b();
-  }
+  bool HasVertex(const Node& n);
+  bool HasEdge(const Edge& e);
+
   // Returns true if both of the vertices are in the matching, but the edge is
   // not.
-  bool AugmentingEdge(const Edge& e) {
-    auto it = edges_.find(e.a());
-    return it != edges_.end() && it->second != e.b() && HasVertex(b);
-  }
+  bool AugmentingEdge(const Edge& e);
  private:
   void insert(const Edge& e);
 
@@ -95,7 +86,44 @@ class Matching {
   // edges_[edges_[A]] == A
   absl::flat_hash_map<Node, Node> edges_;
 };
-  
+
+class Graph {
+ public:
+  struct Options {
+    std::vector<CanonicalNode> owned_nodes;
+    std::vector<Node> nodes;
+  };
+
+  void AddEdge(const Node& a, const Node& b);
+
+  const absl::flat_hash_set<Node>& nodes() const { return all_nodes_; }
+  const absl::flat_hash_set<Edges>& edges() const { return edges_; }
+
+ private:
+  std::vector<CanonicalNode> owned_nodes_;
+  absl::flat_hash_set<Node> all_nodes_;
+  absl::flat_hash_set<Edge> edges_;
+};
+
+namespace internal {
+
+class NodeImpl {
+ public:
+  NodeImpl() = default;
+
+  void Adjacent(const Node& node) const;
+  void AddNeighbor(const Node& node);
+  void RemoveNeighbor(const Node& node);  
+  int degree() const { return neighbors_.size(); }
+
+  const absl::flat_hash_set<Node>& neighbors() const { return neighbors_; }
+
+ private:
+  Node self() const { return Node(const_cast<NodeImpl*>(this)); }
+  absl::flat_hash_set<Node> neighbors_;
+};
+
+}  // namespace internal
 }  // namespace tcgtc
 
 #endif  // _TCGTC_PAIRINGS_GRAPH_H_

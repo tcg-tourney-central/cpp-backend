@@ -64,6 +64,35 @@ class MemoryManagedImplementation :
   std::weak_ptr<Derived> self_ptr_;
 };
 
+template <typename Impl>
+class RawView {
+ public:
+  Impl* get() const { return impl_; }
+  Impl& me() const { return *get(); }
+  Impl* operator->() const { return get(); }
+  Impl& operator*() const { return *get(); }
+ protected:
+  RawView(Impl* impl) : impl_(impl) { assert(impl_ != nullptr); }
+ private:
+  Impl* impl_;
+};
+
+template <typename Impl>
+class RawContainer {
+ public:
+  Impl* get() const { return impl_; } 
+  Impl* operator->() const { return get(); }
+  Impl& operator*() const { return *get(); }
+ protected:
+  template <typename... Args>
+  RawContainer(Args&&... args) : impl_(std::make_unique<Impl>(
+      std::forward<Args>(args)...
+    )) {}
+
+ private:
+  std::unique_ptr<Impl> impl_;
+};
+
 }  // namespace tcgtc
 
 #endif  // _TCGTC_CONTAINER_CLASS_H_

@@ -3,8 +3,10 @@
 namespace tcgtc {
 
 // Node ------------------------------------------------------------------------
+Node::Node(const CanonicalNode& n) : Node(n.get()) {}
+
 bool Node::Adjacent(const Node& n) const {
-  return me().Adjacent(n);
+  return get()->Adjacent(n);
 }
 
 bool Node::operator<(const Node& n) const {
@@ -21,14 +23,8 @@ bool Node::operator!=(const Node& n) const {
 
 uintptr_t Node::iptr() const { return reinterpret_cast<uintptr_t>(get()); }
 
-// Node::View ------------------------------------------------------------------
-absl::StatusOr<Node> Node::View::Lock() const {
-  if (auto ptr = lock(); ptr != nullptr) return Node(ptr);
-  return absl::FailedPreconditionError("Viewed Node destroyed.");
-}
-
-Node::View::View(std::weak_ptr<Node::Impl> impl)
-  : ImplementationView<Impl>(std::move(impl)) {}
+// CanonicalNode ---------------------------------------------------------------
+CanonicalNode::CanonicalNode() : RawContainer<internal::NodeImpl>() {}
 
 
 // Edge ------------------------------------------------------------------------
@@ -66,8 +62,35 @@ void Matching::insert(const Edge& e) {
   edges_.insert({e.b(), e.a()});
 }
 
+// Graph -----------------------------------------------------------------------
+void Graph::AddEdge(const Node& a, const Node& b) {
+  assert(all_nodes_.contains(a) && all_nodes_.contains(b));
+  edges_.insert(Edge(a,b));
+
+  // AddNeighbor is symmetric.
+  a->AddNeighbor(b);
+}
+
 
 namespace internal {
-class NodeImpl;
+
+void NodeImpl::Adjacent(const Node& n) const {
+  bool ret = neighbors_.contains(node);
+  // Adjacency should be symmetric.
+  assert(n.get()->neighbors_.contains(self()) == ret);
+  return ret;
+}
+
+void NodeImpl::AddNeighbor(const Node& n) {
+  assert(n != self());
+  neighbors_.insert(n);
+  n.get()->neighbors_.insert(self());
+}
+
+void NodeImpl::RemoveNeighbor(const Node& n) {
+  neighbors_.erase(node); 
+  n.get()->neighbors_.erase(self());
+}
+
 }  // namespace internal
 }  // namespace tcgtc
