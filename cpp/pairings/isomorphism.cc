@@ -2,6 +2,8 @@
 
 #include <deque>
 
+#include "cpp/pairings/blossom.h"
+
 namespace tcgtc {
 namespace internal {
 namespace {
@@ -73,8 +75,7 @@ PartialPairing PairChunkInternal(const std::vector<Player>& players) {
   Matching initial = InitialMatching(graph_nodes);
   Graph g(graph_nodes);
 
-  // TODO: Define Blossom algo.
-  Matching maximal; // = Blossom(g, initial);
+  Matching maximal = Blossom(g, initial);
 
   // Track the pairings we have made, so we don't insert (A,B) and (B,A).
   absl::flat_hash_set<Node> paired;

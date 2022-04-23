@@ -43,8 +43,8 @@ cc_library(
 
 cc_library(
   name = "isomorphism",
-  hdrs = ["cpp/pairings/isomorphism.h"],
-  srcs = ["cpp/pairings/isomorphism.cc"],
+  hdrs = ["cpp/pairings/blossom.h", "cpp/pairings/isomorphism.h"],
+  srcs = ["cpp/pairings/blossom.cc", "cpp/pairings/isomorphism.cc"],
   deps = [
     ":container-class",
     ":graph",
