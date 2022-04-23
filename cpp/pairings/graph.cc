@@ -54,20 +54,24 @@ bool Matching::AugmentingEdge(const Edge& e) {
   return it != edges_.end() && it->second != e.b() && HasVertex(e.b());
 }
 
-void Matching::insert(const Edge& e) {
-  assert(!HasVertex(e.a()) && !HasVertex(e.b()));
-  edges_.insert({e.a(), e.b()});
-  edges_.insert({e.b(), e.a()});
+void Matching::Insert(const Edge& e) {
+  Insert(e.a(), e.b());
+}
+
+void Matching::Insert(const Node& a, const Node& b) {
+  assert(!HasVertex(a) && !HasVertex(b));
+  edges_.insert({a, b});
+  edges_.insert({b, a});
 }
 
 // Graph -----------------------------------------------------------------------
-void Graph::AddEdge(const Node& a, const Node& b) {
-  assert(all_nodes_.contains(a) && all_nodes_.contains(b));
-  edges_.insert(Edge(a,b));
+// void Graph::AddEdge(const Node& a, const Node& b) {
+//   assert(all_nodes_.contains(a) && all_nodes_.contains(b));
+//   edges_.insert(Edge(a,b));
 
-  // AddNeighbor is symmetric.
-  a->AddNeighbor(b);
-}
+//   // AddNeighbor is symmetric.
+//   a->AddNeighbor(b);
+// }
 
 
 namespace internal {

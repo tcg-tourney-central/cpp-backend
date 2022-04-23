@@ -76,34 +76,37 @@ class Matching {
  public:
   bool HasVertex(const Node& n);
   bool HasEdge(const Edge& e);
+  void Insert(const Edge& e);
+  void Insert(const Node& a, const Node& b);
 
   // Returns true if both of the vertices are in the matching, but the edge is
   // not.
   bool AugmentingEdge(const Edge& e);
+
+  const absl::flat_hash_map<Node, Node>& edges() const { return edges_; }
  private:
-  void insert(const Edge& e);
 
   // For all Node A in edges_,
   // edges_[edges_[A]] == A
   absl::flat_hash_map<Node, Node> edges_;
 };
 
+// Does not own any of its nodes.
 class Graph {
  public:
-  struct Options {
-    std::vector<CanonicalNode> owned_nodes;
-    std::vector<Node> nodes;
-  };
+  explicit Graph(const std::vector<Node>& nodes)
+    : nodes_(nodes.begin(), nodes.end()) {
+    assert(nodes.size() == nodes_.size());
+  }
 
-  void AddEdge(const Node& a, const Node& b);
+  // void AddEdge(const Node& a, const Node& b);
 
-  const absl::flat_hash_set<Node>& nodes() const { return all_nodes_; }
-  const absl::flat_hash_set<Edge>& edges() const { return edges_; }
+  const absl::flat_hash_set<Node>& nodes() const { return nodes_; }
+  // const absl::flat_hash_set<Edge>& edges() const { return edges_; }
 
  private:
-  std::vector<CanonicalNode> owned_nodes_;
-  absl::flat_hash_set<Node> all_nodes_;
-  absl::flat_hash_set<Edge> edges_;
+  absl::flat_hash_set<Node> nodes_;
+  // absl::flat_hash_set<Edge> edges_;
 };
 
 namespace internal {

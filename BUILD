@@ -38,6 +38,22 @@ cc_library(
     "@com_google_absl//absl/container:flat_hash_map",
     "@com_google_absl//absl/container:flat_hash_set",
   ],
+  copts = ["/std:c++17"],
+)
+
+cc_library(
+  name = "isomorphism",
+  hdrs = ["cpp/pairings/isomorphism.h"],
+  srcs = ["cpp/pairings/isomorphism.cc"],
+  deps = [
+    ":container-class",
+    ":graph",
+    ":player-match",
+    "@com_google_absl//absl/hash",
+    "@com_google_absl//absl/container:flat_hash_map",
+    "@com_google_absl//absl/container:flat_hash_set",
+  ],
+  copts = ["/std:c++17"],
 )
 
 cc_library(
