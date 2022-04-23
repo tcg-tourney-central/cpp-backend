@@ -32,13 +32,11 @@ Edge::Edge(Node a, Node b) : a_(a < b ? a : b), b_(a < b ? b : a) {
   assert(a_ != b);
 }
 
-bool operator==(const Edge& e) const {
+bool Edge::operator==(const Edge& e) const {
   return this->a_ == e.a_ && this->b_ == e.b_;
 }
 
-bool operator!=(const Edge& e) const {
-  return !(*this == e);
-}
+bool Edge::operator!=(const Edge& e) const { return !(*this == e); }
 
 
 // Matching --------------------------------------------------------------------
@@ -53,7 +51,7 @@ bool Matching::HasEdge(const Edge& e) {
 
 bool Matching::AugmentingEdge(const Edge& e) {
   auto it = edges_.find(e.a());
-  return it != edges_.end() && it->second != e.b() && HasVertex(b);
+  return it != edges_.end() && it->second != e.b() && HasVertex(e.b());
 }
 
 void Matching::insert(const Edge& e) {
@@ -74,8 +72,8 @@ void Graph::AddEdge(const Node& a, const Node& b) {
 
 namespace internal {
 
-void NodeImpl::Adjacent(const Node& n) const {
-  bool ret = neighbors_.contains(node);
+bool NodeImpl::Adjacent(const Node& n) const {
+  bool ret = neighbors_.contains(n);
   // Adjacency should be symmetric.
   assert(n.get()->neighbors_.contains(self()) == ret);
   return ret;
@@ -88,7 +86,7 @@ void NodeImpl::AddNeighbor(const Node& n) {
 }
 
 void NodeImpl::RemoveNeighbor(const Node& n) {
-  neighbors_.erase(node); 
+  neighbors_.erase(n); 
   n.get()->neighbors_.erase(self());
 }
 

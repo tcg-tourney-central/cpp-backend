@@ -29,6 +29,18 @@ cc_library(
 )
 
 cc_library(
+  name = "graph",
+  hdrs = ["cpp/pairings/graph.h"],
+  srcs = ["cpp/pairings/graph.cc"],
+  deps = [
+    ":container-class",
+    "@com_google_absl//absl/hash",
+    "@com_google_absl//absl/container:flat_hash_map",
+    "@com_google_absl//absl/container:flat_hash_set",
+  ],
+)
+
+cc_library(
   name = "match-id",
   hdrs = ["cpp/match-id.h"],
   deps = [

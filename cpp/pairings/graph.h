@@ -1,6 +1,9 @@
 #ifndef _TCGTC_PAIRINGS_GRAPH_H_
 #define _TCGTC_PAIRINGS_GRAPH_H_
 
+#include "absl/hash/hash.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "cpp/container-class.h"
 
 // This is an implementation of the Blossom Algorithm for maximum matchings on
@@ -37,7 +40,7 @@ class Node : public RawView<internal::NodeImpl> {
  private:
   explicit Node(Impl* impl) : RawView(impl) {}
 
-  uintptr_t iptr() const; { return reinterpret_cast<uintptr_t>(get()); }
+  uintptr_t iptr() const;
 
   friend class ::tcgtc::internal::NodeImpl;
 };
@@ -51,9 +54,7 @@ class CanonicalNode : public RawContainer<internal::NodeImpl> {
 
 class Edge {
  public:
-  Edge(Node a, Node b) : a_(a < b ? a : b), b_(a < b ? b : a) {
-    assert(a_ != b);
-  }
+  Edge(Node a, Node b);
 
   Node a() const { return a_; }
   Node b() const { return b_; }
@@ -97,7 +98,7 @@ class Graph {
   void AddEdge(const Node& a, const Node& b);
 
   const absl::flat_hash_set<Node>& nodes() const { return all_nodes_; }
-  const absl::flat_hash_set<Edges>& edges() const { return edges_; }
+  const absl::flat_hash_set<Edge>& edges() const { return edges_; }
 
  private:
   std::vector<CanonicalNode> owned_nodes_;
@@ -111,7 +112,7 @@ class NodeImpl {
  public:
   NodeImpl() = default;
 
-  void Adjacent(const Node& node) const;
+  bool Adjacent(const Node& node) const;
   void AddNeighbor(const Node& node);
   void RemoveNeighbor(const Node& node);  
   int degree() const { return neighbors_.size(); }

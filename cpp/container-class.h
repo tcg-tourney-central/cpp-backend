@@ -80,7 +80,7 @@ class RawView {
 template <typename Impl>
 class RawContainer {
  public:
-  Impl* get() const { return impl_; } 
+  Impl* get() const { return impl_.get(); } 
   Impl* operator->() const { return get(); }
   Impl& operator*() const { return *get(); }
  protected:
