@@ -27,7 +27,7 @@ Matching InitialMatching(const std::vector<Node>& nodes) {
 }
 }  // namespace
 
-PartialPairing PairChunkInternal(std::vector<Player> players) {
+PartialPairing PairChunkInternal(const std::vector<Player>& players) {
   std::vector<CanonicalNode> nodes;
   absl::flat_hash_map<Node, Player> n2p;
   nodes.reserve(players.size());
@@ -57,41 +57,34 @@ PartialPairing PairChunkInternal(std::vector<Player> players) {
 
   PartialPairing ret;
 
-  // Trim simple base cases of Nodes with degree 0 and 1 from our graph.
+  // Trim simple base cases of Nodes with degree 0 from our graph.
   std::vector<Node> graph_nodes;
   graph_nodes.reserve(players.size());
-  absl::flat_hash_set<Node> paired;
   for (const auto& n : nodes) {
     const auto& nbhd = n->neighbors();
-    switch (nbhd.size()) {
-      case 0:  // No legal pairings in this chunk.
+    if (nbhd.empty()) { // No legal pairings in this chunk.
         ret.unpaired.push_back(player(n));
-        break;
-      case 1:  // One legal pairing in this chunk.
-        if (paired.insert(n).second) {  // Only insert the pairing once.
-          const Node& adj = *nbhd.begin();
-          ret.paired.push_back({player(n), player(adj)});
-          paired.insert(adj);
-        }
-        break;
-      default:
-        graph_nodes.push_back(n);
+    } else {
+      graph_nodes.push_back(n);
     }
   }
 
-  // Fill in the rest of the partial pairing.
+  // Seed the Blossom algorithm with an initial matching.
   Matching initial = InitialMatching(graph_nodes);
   Graph g(graph_nodes);
 
   // TODO: Define Blossom algo.
   Matching maximal; // = Blossom(g, initial);
 
+  // Track the pairings we have made, so we don't insert (A,B) and (B,A).
+  absl::flat_hash_set<Node> paired;
   for (const Node& n : g.nodes()) {
     if (auto it = maximal.edges().find(n); it != maximal.edges().end()) {
       if (paired.insert(n).second) {  // Only insert the pairing once.
         const Node& adj = it->second;
         ret.paired.push_back({player(n), player(adj)});
-        paired.insert(adj);
+        bool inserted = paired.insert(adj).second;
+        assert(inserted);
       }
     } else {
       ret.unpaired.push_back(player(n));

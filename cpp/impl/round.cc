@@ -6,10 +6,16 @@
 #include "cpp/match-result.h"
 #include "cpp/player-match.h"
 #include "cpp/impl/tournament.h"
+#include "cpp/pairings/isomorphism.h"
 #include "cpp/util.h"
 
 namespace tcgtc {
 namespace internal {
+namespace {
+bool ValidPairing(const std::pair<Player, Player>& p) {
+  return !p.first->has_played_opp(p.second);
+}
+}  // namespace
 
 RoundImpl::RoundImpl(const Options& opts)
   : id_(opts.id), parent_(opts.parent) {}
@@ -42,131 +48,6 @@ absl::Status RoundImpl::JudgeSetResult(Match m) {
   return absl::OkStatus();
 }
 
-
-namespace {
-struct PerMatchPointPairing {
-  PerMatchPointPairing() = default;
-  PerMatchPointPairing(std::vector<Player> pairs, 
-                       std::vector<Player> leftovers) {
-    assert((pairs.size() & 1) == 0);
-    pairings.reserve(pairs.size() >> 1);
-    for (int idx = 0; idx + 1 < pairs.size(); idx += 2) {
-      auto& left = pairs[idx];
-      auto& right = pairs[idx+1];
-      pairings.push_back(std::make_pair(std::move(left), std::move(right)));
-    }
-    remainders = std::move(leftovers);
-  }
-  std::vector<std::pair<Player, Player>> pairings;
-  std::vector<Player> remainders;
-};
-
-bool ValidPairing(const Player& l, const Player& r) { 
-  return !l->has_played_opp(r);
-}
-bool ValidPairing(const std::pair<Player, Player>& pair) { 
-  return ValidPairing(pair.first, pair.second);
-}
-
-bool AttemptInPlaceRepair(std::pair<Player, Player>& bad, 
-                          std::pair<Player, Player>& good) {
-  auto& a = bad.first;
-  auto& b = bad.second;
-  auto& c = good.first;
-  auto& d = good.second;
-  if (ValidPairing(a, d) && ValidPairing(b, c)) {
-    std::swap(a, c);
-    return true;
-  }
-  if (ValidPairing(a, c) && ValidPairing(b, d)) {
-    std::swap(a, d);
-    return true;
-  }
-  return false;
-}
-
-template <typename URBG>
-void AttemptFixes(PerMatchPointPairing& out, URBG& urbg) {
-  std::vector<Player> problem_players;
-  problem_players.swap(out.remainders);
-  std::shuffle(problem_players.begin(), problem_players.end(), urbg);
-
-  for (int idx = 0; idx + 1 < problem_players.size(); idx += 2) {
-    auto bad_pair = std::make_pair(problem_players[idx],
-                                    problem_players[idx + 1]);
-    // Check if this pairing is good post-shuffle.
-    if (ValidPairing(bad_pair)) {
-      out.pairings.push_back(std::move(bad_pair));
-      continue;
-    }
-    bool repair_success = false;
-    for (auto& pair : out.pairings) {
-      if ((repair_success = AttemptInPlaceRepair(bad_pair, pair))) {
-        // bad_pair now contains a valid matching, as does the in-place updated
-        // pair.
-        out.pairings.push_back(std::move(bad_pair));
-        break;
-      }
-    }
-
-    // Couldn't repair these two despite inspecting every other match for
-    // possible swaps. Probably terrible luck.
-    if (!repair_success) {
-      out.remainders.push_back(std::move(bad_pair.first));
-      out.remainders.push_back(std::move(bad_pair.second));
-    }
-  }
-}
-
-// TODO: This is a pretty naive and probably bad pairing algo.
-template <typename URBG>
-PerMatchPointPairing PairChunk(std::vector<Player> players, URBG& urbg) {
-  std::shuffle(players.begin(), players.end(), urbg);
-
-  std::vector<Player> paired_players;
-  std::vector<Player> problem_players;
-  paired_players.reserve(players.size());
-
-  for (int idx = 0; idx + 1 < players.size(); idx += 2) {
-    auto& left = players[idx];
-    auto& right = players[idx+1];
-
-    // Leave this pairing "as is", for now.
-    if (ValidPairing(left, right)) {
-      paired_players.push_back(left);
-      paired_players.push_back(right);
-      continue;
-    }
-    problem_players.push_back(left);
-    problem_players.push_back(right);
-  }
-  // Odd number of players, using bit-wise odd number check.
-  if ((players.size() & 1) != 0) {
-    problem_players.push_back(players.back());
-  }
-
-  // Initial pairing.
-  PerMatchPointPairing out(paired_players, problem_players);
-
-  // Attempt to mix any unpairable "pairs" into the existing valid pairings.
-  while (out.remainders.size() > 1) {
-    auto prev_size = out.remainders.size();
-    AttemptFixes(out, urbg);
-
-    // This accounts for the "draw bracket" case.
-    // TODO: Is it possible that we have equal sizes and have to run again?
-    if (out.remainders.size() == prev_size) {
-      AttemptFixes(out, urbg);
-
-      // TODO: I am pretty sure this isn't correct, but it is in probability
-      // good enough for now.
-      if (out.remainders.size() == prev_size) break;
-    }
-  }
-  return out;
-}
-}  // namespace 
-
 // TODO: Look into benchmarking this function eventually.
 absl::Status RoundImpl::GenerateSwissPairings() {
   auto p = parent_.Lock();
@@ -175,32 +56,32 @@ absl::Status RoundImpl::GenerateSwissPairings() {
   Tournament parent = *std::move(p);
   auto players = parent->ActivePlayers();
 
-  std::vector<std::pair<Player, Player>> pairings;
-  std::vector<Player> remainders;
+  PartialPairing final;
   for (auto it = players.rbegin(); it != players.rend(); ++it) {
     auto& current = it->second;
 
     // Collect any unpaired players from the last attempt.
-    for (auto& p : remainders) current.push_back(std::move(p));
-    auto tmp = PairChunk(std::move(current), parent->rand());
+    for (auto& p : final.unpaired) current.push_back(std::move(p));
+    auto tmp = PairChunk(current, parent->rand());
 
-    for (auto& pair : tmp.pairings) pairings.push_back(std::move(pair));
-    remainders = std::move(tmp.remainders);
+    // Collect the pairings for this chunk.
+    for (auto& pair : tmp.paired) final.paired.push_back(std::move(pair));
+    final.unpaired.swap(tmp.unpaired);
   }
-  assert(std::all_of(pairings.begin(), pairings.end(), [](auto p){
+  assert(std::all_of(final.paired.begin(), final.paired.end(), [](auto p){
      return ValidPairing(p);
   }));
-  assert(remainders.size() <= 1);
+  assert(final.unpaired.size() <= 1);
 
   absl::MutexLock l(&mu_);
   IdGen gen(id_);
-  for (auto& p : pairings) {
+  for (const auto& p : final.paired) {
     MatchId id = gen.next();
-    auto& l = p.first;
-    auto& r = p.second;
+    const auto& l = p.first;
+    const auto& r = p.second;
     outstanding_matches_.insert({id, Match::Impl::CreatePairing(l, r, id)});
   }
-  for (auto& p : remainders) {
+  for (auto& p :  final.unpaired) {
     MatchId id = gen.next();
     reported_matches_.insert({id, Match::Impl::CreateBye(p, id)});
   }

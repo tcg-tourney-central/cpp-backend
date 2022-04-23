@@ -23,11 +23,11 @@ struct PartialPairing {
 };
 
 namespace internal {
-PartialPairing PairChunkInternal(std::vector<Player> players);
+PartialPairing PairChunkInternal(const std::vector<Player>& players);
 }  // namespace internal
 
 template <typename URBG>
-PartialPairing PairChunk(std::vector<Player> players, URBG& urbg) {
+PartialPairing PairChunk(std::vector<Player>& players, URBG& urbg) {
   std::shuffle(players.begin(), players.end(), urbg);
   return internal::PairChunkInternal(players);
 }

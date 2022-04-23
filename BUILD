@@ -120,6 +120,7 @@ cc_library(
   srcs = ["cpp/impl/round.cc", "cpp/impl/tournament.cc"],
   deps = [
     ":definitions",
+    ":isomorphism",
     ":match-id",
     ":player-match",
     ":util",
